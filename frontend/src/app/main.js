@@ -13,7 +13,7 @@ import { bindGlowButtons } from "../ui/glow-effect.js";
 
 const root = document.querySelector("#app");
 const api = new WailsApi();
-const store = createStore({ version: "1.0", providers: [], selectedProviderId: "", modelRoles: {}, settings: { ompCommand: "omp", workingDir: "", theme: "system" }, paths: {}, logs: [], presets: PRESETS, modal: null, drawer: null, modelMenuOpen: false, providerMenuOpen: false, launchPending: false });
+const store = createStore({ version: "1.0.0", providers: [], selectedProviderId: "", modelRoles: {}, settings: { ompCommand: "omp", workingDir: "", theme: "system" }, paths: {}, logs: [], presets: PRESETS, modal: null, drawer: null, modelMenuOpen: false, providerMenuOpen: false, launchPending: false, testPending: false });
 const feedback = createOperationFeedback(store);
 const themeManager = new ThemeManager({ api, store });
 const providerForm = createProviderFormController({ root, api, store, feedback });
@@ -65,13 +65,13 @@ const clickActions = {
   "data-open-provider-manager": () => openModal("provider-manager"),
   "data-open-settings": () => openModal("settings"),
   "data-open-sessions": appActions.openSessions,
+  "data-open-global-skills": appActions.openGlobalSkills,
   "data-open-model-roles": appActions.openRoles,
   "data-open-current-provider": () => { const provider = currentProvider(); if (provider) providerForm.openExisting(provider.id); },
   "data-open-model-details": () => { const model = currentModel(); if (model) openModal("model-details", { model }); },
-  "data-open-logs": () => openModal("logs", { logs: store.getState().logs ?? [] }),
   "data-open-config-folder": () => api.openConfigFolder().catch((error) => feedback.showError("打开配置目录失败", error)),
   "data-open-api-doc": () => api.openExternalURL("https://omp.sh"),
-  "data-restart-omp": appActions.restartOMP,
+  "data-test-model": appActions.testModel,
   "data-toggle-provider-switcher": toggleProviderMenu,
   "data-close-modal": closeModal,
   "data-cancel-provider": () => closeOverlay("drawer"),
@@ -86,6 +86,8 @@ const clickActions = {
   "data-confirm-delete-provider": providerActions.confirmDeleteProvider,
   "data-confirm-delete-model": providerActions.confirmDeleteModel,
   "data-confirm-delete-session": appActions.confirmDeleteSession,
+  "data-confirm-delete-skill": appActions.confirmDeleteGlobalSkill,
+  "data-return-global-skills": () => store.setState((state) => ({ ...state, modal: { kind: "skill-manager", payload: state.modal?.payload?.inventory ?? { root: "", skills: [] } } })),
   "data-return-sessions": () => store.setState((state) => ({ ...state, modal: { kind: "session-manager", payload: { sessions: state.modal?.payload?.sessions ?? [] } } })),
   "data-save-settings": appActions.saveSettings,
   "data-save-roles": appActions.saveRoles,
@@ -120,6 +122,7 @@ root.addEventListener("click", async (event) => {
     const session = store.getState().modal?.payload?.sessions?.find((item) => item.id === target.dataset.deleteSession);
     return appActions.requestDeleteSession(session);
   }
+  if (target.dataset.deleteGlobalSkill) return appActions.requestDeleteGlobalSkill(target.dataset.deleteGlobalSkill);
   if (target.dataset.presetId) return providerActions.createFromPreset(target.dataset.presetId);
   if (target.dataset.editModel) return providerActions.openModelEditor(target.dataset.editModel);
   if (target.dataset.deleteModel) return providerActions.requestDeleteModel(target.dataset.deleteModel);
@@ -130,7 +133,12 @@ root.addEventListener("click", async (event) => {
 });
 
 root.addEventListener("input", (event) => {
-  if (event.target.matches("[data-discovery-search]")) providerActions.updateReviewQuery(event.target.value);
+  if (event.target.matches("[data-discovery-search]") && !event.target.value && store.getState().modal?.payload?.query) providerActions.updateReviewQuery("");
+});
+root.addEventListener("submit", (event) => {
+  if (!event.target.matches("[data-discovery-search-form]")) return;
+  event.preventDefault();
+  providerActions.updateReviewQuery(event.target.querySelector("[data-discovery-search]")?.value.trim() ?? "");
 });
 root.addEventListener("change", (event) => {
   const target = event.target;
@@ -140,13 +148,37 @@ root.addEventListener("change", (event) => {
 });
 
 let renderedState = null;
+function captureModalView() {
+  const dialog = root.querySelector(".modal-dialog");
+  if (!dialog) return null;
+  const active = document.activeElement;
+  return {
+    searchDraft: dialog.querySelector("[data-discovery-search]")?.value,
+    focusedReviewModel: active?.dataset?.reviewModel ?? "",
+    searchFocused: active?.matches?.("[data-discovery-search]") ?? false,
+    scrollPositions: [...dialog.querySelectorAll(".discovery-list")].map((list) => list.scrollTop),
+    openGroups: [...dialog.querySelectorAll(".discovery-group")].map((group) => group.open)
+  };
+}
+
+function restoreModalView(view) {
+  if (!view) return;
+  const dialog = root.querySelector(".modal-dialog");
+  if (!dialog) return;
+  dialog.querySelectorAll(".discovery-group").forEach((group, index) => { if (index < view.openGroups.length) group.open = view.openGroups[index]; });
+  dialog.querySelectorAll(".discovery-list").forEach((list, index) => { list.scrollTop = view.scrollPositions[index] ?? 0; });
+  const search = dialog.querySelector("[data-discovery-search]");
+  if (search && view.searchDraft !== undefined) search.value = view.searchDraft;
+  if (view.focusedReviewModel) dialog.querySelector(`[data-review-model="${CSS.escape(view.focusedReviewModel)}"]`)?.focus({ preventScroll: true });
+  else if (view.searchFocused) search?.focus({ preventScroll: true });
+}
 function renderState(state) {
   if (!renderedState) root.innerHTML = renderApp(state);
   else {
     const content = root.querySelector("[data-content-layer]"); const drawer = root.querySelector("[data-drawer-layer]"); const modal = root.querySelector("[data-modal-layer]");
     if (!content || !drawer || !modal) root.innerHTML = renderApp(state);
     else {
-      const contentChanged = renderedState.providers !== state.providers || renderedState.selectedProviderId !== state.selectedProviderId || renderedState.modelRoles !== state.modelRoles || renderedState.modelMenuOpen !== state.modelMenuOpen || renderedState.providerMenuOpen !== state.providerMenuOpen || renderedState.launchPending !== state.launchPending;
+      const contentChanged = renderedState.providers !== state.providers || renderedState.selectedProviderId !== state.selectedProviderId || renderedState.modelRoles !== state.modelRoles || renderedState.modelMenuOpen !== state.modelMenuOpen || renderedState.providerMenuOpen !== state.providerMenuOpen || renderedState.launchPending !== state.launchPending || renderedState.testPending !== state.testPending;
       if (contentChanged) {
         content.innerHTML = renderContentLayer(state);
         if (renderedState.selectedProviderId !== state.selectedProviderId || renderedState.providers !== state.providers) animateOverlayIn(".dashboard-main", [{ opacity: .82, transform: "translateX(7px)" }, { opacity: 1, transform: "translateX(0)" }]);
@@ -156,7 +188,9 @@ function renderState(state) {
         if (!renderedState.drawer && state.drawer) animateOverlayIn(".drawer", [{ opacity: 0, transform: "translateX(28px) scale(.992)" }, { opacity: 1, transform: "translateX(0) scale(1)" }]);
       }
       if (renderedState.modal !== state.modal || (state.modal?.kind === "settings" && renderedState.settings !== state.settings)) {
+        const modalView = renderedState.modal?.kind === state.modal?.kind ? captureModalView() : null;
         modal.innerHTML = renderModal(state);
+        restoreModalView(modalView);
         if (!renderedState.modal && state.modal) animateOverlayIn(".modal-backdrop", [{ opacity: 0, transform: "translateY(10px) scale(.985)" }, { opacity: 1, transform: "translateY(0) scale(1)" }]);
       }
     }

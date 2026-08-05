@@ -4,6 +4,7 @@ frontend/package.json.md5
 build/bin/
 dist/
 release/
+frontend/.playwright-cli/
 
 *.exe
 *.exe~

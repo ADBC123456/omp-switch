@@ -47,7 +47,7 @@ export function renderMainPanel(state, provider) {
       </section>
       <div class="dashboard-grid">
         <section class="dashboard-card config-card" aria-labelledby="config-title"><div class="section-heading"><h2 id="config-title">配置概览</h2></div><div class="config-list">${configRows(provider, selected, defaultRole)}</div><button class="detail-button glow-button" data-open-config-folder>${icon("config")}<span>查看完整配置</span>${icon("chevron")}</button></section>
-        <section class="dashboard-card quick-card" aria-labelledby="quick-title"><div class="section-heading"><h2 id="quick-title">快捷操作</h2></div><div class="quick-grid">${quickAction("restart", "重新启动", "重新启动本应用启动的 OMP", "data-restart-omp", state.launchPending)}${quickAction("logs", "查看日志", "查看应用运行日志", "data-open-logs")}${quickAction("rocket", "OMP 官方文档", "打开 omp.sh", "data-open-api-doc")}${quickAction("plus", "添加 Provider", "配置新的 Provider", "data-open-add-provider")}</div></section>
+        <section class="dashboard-card quick-card" aria-labelledby="quick-title"><div class="section-heading"><h2 id="quick-title">快捷操作</h2></div><div class="quick-grid">${quickAction("api", state.testPending ? "测试中" : "测试模型", "向上游发送短消息 Hi", "data-test-model", !provider || !selected || state.testPending)}${quickAction("role", "角色模型映射", "配置 OMP 角色使用的模型", "data-open-model-roles")}${quickAction("rocket", "OMP 官方文档", "打开 omp.sh", "data-open-api-doc")}${quickAction("plus", "添加 Provider", "配置新的 Provider", "data-open-add-provider")}</div></section>
       </div>
     </div>
   </main>`;

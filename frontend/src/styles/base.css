@@ -49,15 +49,15 @@ select:focus-visible {
 input,
 select {
   width: 100%;
-  min-height: 38px;
-  padding: 0 10px;
-  border: 0;
-  border-radius: 4px;
+  min-height: var(--control-md);
+  padding: 0 12px;
+  border: 1px solid var(--color-divider);
+  border-radius: var(--radius-sm);
   background: var(--color-input-bg);
   color: var(--ink);
-  font-size: 11px;
+  font-size: 12px;
   outline: none;
-  transition: background-color 180ms ease, box-shadow 180ms ease;
+  transition: background-color 180ms ease, border-color 180ms ease, box-shadow 180ms ease;
 }
 
 input:hover,
@@ -73,48 +73,41 @@ select:focus {
 
 .eyebrow {
   font-family: var(--font-display);
-  font-size: 10px;
-  font-weight: 600;
+  font-size: 11px;
+  font-weight: 650;
   letter-spacing: 0.16em;
   color: var(--accent);
 }
 
 .text-button {
   position: relative;
-  min-height: 34px;
-  padding: 0 13px;
+  min-height: var(--control-md);
+  padding: 0 15px;
   overflow: hidden;
-  border: 1px solid var(--border-color, var(--color-divider));
-  border-radius: 999px;
-  background:
-    linear-gradient(180deg, rgba(255,255,255,.34), rgba(255,255,255,.08)),
-    color-mix(in srgb, var(--control-bg, var(--color-surface-muted)) 82%, transparent);
-  -webkit-backdrop-filter: blur(18px) saturate(145%);
-  backdrop-filter: blur(18px) saturate(145%);
-  box-shadow: inset 0 1px 0 var(--border-highlight, rgba(255,255,255,.5)), 0 5px 14px rgba(20,24,32,.06);
+  border: 1px solid var(--color-divider);
+  border-radius: var(--radius-pill);
+  background: var(--control-bg);
+  box-shadow: none;
   color: var(--ink-secondary);
-  font-size: 11px;
+  font-size: 12px;
+  font-weight: 560;
   cursor: pointer;
-  transition: transform 120ms ease-out, color 180ms ease, border-color 180ms ease, background-color 180ms ease, box-shadow 180ms ease;
+  transition: transform 120ms ease-out, color 180ms ease, border-color 180ms ease, background-color 180ms ease;
 }
 
 .text-button::before {
-  position: absolute;
-  inset: 0;
-  content: "";
-  border-radius: inherit;
-  background: radial-gradient(90px circle at 32% 0%, rgba(255,255,255,.34), transparent 68%);
-  pointer-events: none;
+  display: none;
 }
 
 .text-button:hover {
-  border-color: var(--border-highlight, var(--color-divider-strong));
+  border-color: var(--color-divider-strong);
+  background: var(--color-hover-bg);
   color: var(--ink);
-  box-shadow: inset 0 1px 0 var(--border-highlight, rgba(255,255,255,.55)), 0 8px 20px rgba(20,24,32,.09);
 }
 .text-button:active { transform: scale(.965); }
 .text-button--accent { color: var(--color-accent); background-color: var(--accent-soft); }
 .text-button--danger { color: var(--danger); background-color: var(--color-danger-bg); }
+
 
 .window-symbol,
 .provider-row__configure {

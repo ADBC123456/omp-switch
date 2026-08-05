@@ -11,7 +11,7 @@
   justify-items: center;
   gap: 14px;
   color: var(--text-secondary);
-  font-size: 10px;
+  font-size: 11px;
   letter-spacing: 0.12em;
   animation: bootContentIn 480ms var(--ease-out) both;
 }

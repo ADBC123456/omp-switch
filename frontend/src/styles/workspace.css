@@ -53,13 +53,13 @@
 
 .model-select__trigger {
   width: 100%;
-  min-height: 52px;
+  min-height: var(--control-lg);
   padding: 0 14px;
   display: flex;
   align-items: center;
   justify-content: space-between;
-  border: 0;
-  border-radius: 4px;
+  border: 1px solid var(--color-divider);
+  border-radius: var(--radius-sm);
   background: var(--color-input-bg);
   color: var(--ink);
   font-family: var(--font-display);
@@ -93,13 +93,15 @@
   left: 0;
   z-index: 10;
   max-height: 240px;
-  padding: 6px 0;
+  padding: 6px;
   overflow-y: auto;
   scrollbar-width: none;
   -ms-overflow-style: none;
-  border: 0;
-  border-radius: 6px;
-  background: var(--surface-raised);
+  border: 1px solid var(--color-divider);
+  border-radius: var(--radius-md);
+  background: color-mix(in srgb, var(--surface-raised) 94%, transparent);
+  backdrop-filter: blur(24px) saturate(120%);
+  -webkit-backdrop-filter: blur(24px) saturate(120%);
   box-shadow: var(--shadow-dropdown);
   opacity: 0;
   visibility: hidden;
@@ -175,7 +177,7 @@
 
 .default-summary span {
   font-family: var(--font-display);
-  font-size: 9px;
+  font-size: 11px;
   letter-spacing: 0.13em;
 }
 
@@ -187,7 +189,7 @@
 
 .default-summary__ctx {
   color: var(--ink-muted);
-  font-size: 10px;
+  font-size: 11px;
   margin-left: 8px;
 }
 
@@ -198,7 +200,7 @@
   align-items: center;
   justify-content: space-between;
   color: var(--ink-muted);
-  font-size: 10px;
+  font-size: 11px;
 }
 
 .status-dot {

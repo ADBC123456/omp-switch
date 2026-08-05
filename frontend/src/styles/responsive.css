@@ -78,11 +78,17 @@
   .modal-body { overflow-y: auto; }
   .model-editor-grid, .role-row { grid-template-columns: 1fr; }
   .role-row { padding: 12px 0; }
-  .discovery-toolbar { grid-template-columns: 1fr auto; }
-  .discovery-toolbar > span { grid-column: 1 / -1; }
+  .discovery-toolbar { grid-template-columns: 1fr auto; align-items: center; }
+  .discovery-toolbar .discovery-search { grid-column: 1 / -1; }
+  .discovery-toolbar .discovery-count { padding: 0 8px 0 0; }
+  .modal-dialog--pills .modal-header { padding: 24px 22px 16px; }
+  .modal-dialog--pills .modal-body { padding: 2px 22px 20px; }
+  .modal-dialog--pills .modal-footer { padding: 12px 22px 20px; }
   .sidebar-footer { gap: 14px; justify-content: flex-start; flex-wrap: wrap; }
   .session-row { grid-template-columns: 1fr; gap: 10px; }
   .session-row__actions { justify-content: flex-end; }
+  .skill-row { grid-template-columns: 1fr; gap: 10px; }
+  .skill-row > .text-button { justify-self: end; }
 }
 
 @media (prefers-reduced-motion: reduce) {

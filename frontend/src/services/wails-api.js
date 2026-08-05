@@ -1,4 +1,4 @@
-import { CancelModelDiscovery, CheckEnvVar, CheckForUpdate, ContinueSession, CreateProvider, DeleteModel, DeleteProvider, DeleteSession, ExecuteLaunchOMP, FetchModels, GetAppState, GetModelDeleteImpact, GetProviderDeleteImpact, ImportDiscoveredModels, InstallUpdate, ListSessions, MarkUpdateChecked, OpenConfigFolder, RestartOMP, SaveModel, SetSelectedModel, SetSelectedProvider, UpdateModelRoles, UpdateProvider, UpdateSettings } from "../../wailsjs/go/main/App";
+import { CancelModelDiscovery, CheckEnvVar, CheckForUpdate, ContinueSession, CreateProvider, DeleteGlobalSkill, DeleteModel, DeleteProvider, DeleteSession, ExecuteLaunchOMP, FetchModels, GetAppState, GetModelDeleteImpact, GetProviderDeleteImpact, ImportDiscoveredModels, InstallUpdate, ListGlobalSkills, ListSessions, MarkUpdateChecked, OpenConfigFolder, SaveModel, SetSelectedModel, SetSelectedProvider, TestModel, UpdateModelRoles, UpdateProvider, UpdateSettings } from "../../wailsjs/go/main/App";
 import { BrowserOpenURL, Quit, WindowMinimise, WindowToggleMaximise, EventsOn } from "../../wailsjs/runtime/runtime";
 
 export class WailsApi {
@@ -19,10 +19,12 @@ export class WailsApi {
   setSelectedModel(providerId, modelId) { return SetSelectedModel(providerId, modelId); }
   updateModelRoles(updates) { return UpdateModelRoles(updates); }
   executeLaunchOMP(providerId, modelId) { return ExecuteLaunchOMP(providerId, modelId); }
-  restartOMP() { return RestartOMP(); }
+  testModel(providerId, modelId) { return TestModel(providerId, modelId); }
   listSessions() { return ListSessions(); }
   continueSession(id) { return ContinueSession(id); }
   deleteSession(id) { return DeleteSession(id); }
+  listGlobalSkills() { return ListGlobalSkills(); }
+  deleteGlobalSkill(name) { return DeleteGlobalSkill(name); }
   updateSettings(settings) { return UpdateSettings(settings); }
   checkForUpdate() { return CheckForUpdate(); }
   markUpdateChecked() { return MarkUpdateChecked(); }

@@ -4,6 +4,7 @@ import {system} from '../models';
 import {updater} from '../models';
 import {provider} from '../models';
 import {main} from '../models';
+import {skills} from '../models';
 import {config} from '../models';
 import {sessions} from '../models';
 import {omp} from '../models';
@@ -17,6 +18,8 @@ export function CheckForUpdate():Promise<updater.CheckResult>;
 export function ContinueSession(arg1:string):Promise<void>;
 
 export function CreateProvider(arg1:provider.SaveInput):Promise<main.ProviderMutationResult>;
+
+export function DeleteGlobalSkill(arg1:string):Promise<skills.Inventory>;
 
 export function DeleteModel(arg1:string,arg2:string):Promise<config.AppState>;
 
@@ -40,6 +43,8 @@ export function InstallUpdate():Promise<void>;
 
 export function LaunchOMP(arg1:string,arg2:string):Promise<omp.LaunchPreview>;
 
+export function ListGlobalSkills():Promise<skills.Inventory>;
+
 export function ListProviders():Promise<Array<provider.View>>;
 
 export function ListSessions():Promise<Array<sessions.Info>>;
@@ -48,13 +53,13 @@ export function MarkUpdateChecked():Promise<void>;
 
 export function OpenConfigFolder():Promise<void>;
 
-export function RestartOMP():Promise<void>;
-
 export function SaveModel(arg1:string,arg2:string,arg3:provider.ModelInfo):Promise<config.AppState>;
 
 export function SetSelectedModel(arg1:string,arg2:string):Promise<config.AppState>;
 
 export function SetSelectedProvider(arg1:string):Promise<config.AppState>;
+
+export function TestModel(arg1:string,arg2:string):Promise<provider.ConnectionTestResult>;
 
 export function UpdateModelRoles(arg1:Array<config.RoleUpdate>):Promise<config.AppState>;
 

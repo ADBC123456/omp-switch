@@ -44,10 +44,10 @@ func TestContinueSessionLaunchesResumeInOriginalDirectory(t *testing.T) {
 	sessionPath := writeAppSession(t, app.paths.OMPSessionsDir, "session-id", "Session title", workingDir)
 	var preview omp.LaunchPreview
 	var launchedDirectory string
-	app.startManagedOMP = func(input omp.LaunchPreview, directory string) (managedOMPProcess, error) {
+	app.startManagedOMP = func(input omp.LaunchPreview, directory string) error {
 		preview = input
 		launchedDirectory = directory
-		return &fakeManagedOMP{running: true}, nil
+		return nil
 	}
 
 	if err := app.ContinueSession("session-id"); err != nil {
@@ -55,9 +55,6 @@ func TestContinueSessionLaunchesResumeInOriginalDirectory(t *testing.T) {
 	}
 	if launchedDirectory != workingDir || len(preview.Arguments) != 2 || preview.Arguments[0] != "--resume" || preview.Arguments[1] != sessionPath {
 		t.Fatalf("preview=%#v directory=%q", preview, launchedDirectory)
-	}
-	if app.lastOMPLaunch == nil || app.managedOMP == nil {
-		t.Fatal("continued session was not retained for restart")
 	}
 }
 

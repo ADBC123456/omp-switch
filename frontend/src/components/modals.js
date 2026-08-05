@@ -1,8 +1,8 @@
 import { escapeHtml } from "./view-utils.js";
 import { renderModelRoles } from "./model-roles.js";
 
-function modalFrame({ tone = "", title, description = "", body = "", actions = "", wide = false }) {
-  return `<div class="modal-backdrop"><section class="modal-dialog ${wide ? "modal-dialog--wide" : ""} ${tone ? `modal-dialog--${tone}` : ""}" role="dialog" aria-modal="true"><header class="modal-header"><h3>${escapeHtml(title)}</h3>${description ? `<p>${escapeHtml(description)}</p>` : ""}</header>${body ? `<div class="modal-body">${body}</div>` : ""}<footer class="modal-footer">${actions}</footer></section></div>`;
+function modalFrame({ tone = "", title, description = "", body = "", actions = "", wide = false, variant = "" }) {
+  return `<div class="modal-backdrop"><section class="modal-dialog ${wide ? "modal-dialog--wide" : ""} ${tone ? `modal-dialog--${tone}` : ""} ${variant ? `modal-dialog--${variant}` : ""}" role="dialog" aria-modal="true"><header class="modal-header"><h3>${escapeHtml(title)}</h3>${description ? `<p>${escapeHtml(description)}</p>` : ""}</header>${body ? `<div class="modal-body">${body}</div>` : ""}<footer class="modal-footer">${actions}</footer></section></div>`;
 }
 
 function resultModal(payload) {
@@ -27,7 +27,7 @@ function discoveryReview(payload) {
   const visible = (payload.added ?? []).filter((model) => !query || `${model.id} ${model.name ?? ""}`.toLowerCase().includes(query.toLowerCase()));
   const selectedVisible = visible.filter((model) => selected.has(model.id)).length;
   const section = (title, models, open, selectable = false) => `<details class="discovery-group" ${open ? "open" : ""}><summary>${title}<span>${models.length}</span></summary><div class="discovery-list">${models.length ? models.map((model) => `<label class="discovery-row">${selectable ? `<input type="checkbox" data-review-model="${escapeHtml(model.id)}" ${selected.has(model.id) ? "checked" : ""}>` : ""}<span><strong>${escapeHtml(model.name || model.id)}</strong><small>${escapeHtml(model.id)}</small></span></label>`).join("") : '<p class="quiet-empty">无</p>'}</div></details>`;
-  return modalFrame({ wide: true, title: "识别结果", description: `新增 ${payload.added.length} · 已存在 ${payload.existing.length} · 未识别 ${payload.missing.length}`, body: `<div class="discovery-toolbar"><input type="search" data-discovery-search value="${escapeHtml(query)}" placeholder="搜索 ID 或名称"><button class="text-button" data-toggle-filtered-review>${selectedVisible === visible.length && visible.length ? "取消选择筛选项" : "选择筛选项"}</button><span>${selectedVisible}/${visible.length} 已选</span></div>${(payload.warnings ?? []).length ? `<div class="discovery-warnings">${payload.warnings.map((item) => `<p>${escapeHtml(item)}</p>`).join("")}</div>` : ""}${section("新增", visible, true, true)}${section("已存在", payload.existing, false)}${section("本次未识别", payload.missing, false)}`, actions: '<button class="text-button" data-close-modal>取消</button><button class="text-button text-button--accent" data-import-models>导入所选模型</button>' });
+  return modalFrame({ wide: true, variant: "pills discovery-review", title: "识别结果", description: `新增 ${payload.added.length} · 已存在 ${payload.existing.length} · 未识别 ${payload.missing.length}`, body: `<form class="discovery-toolbar" data-discovery-search-form><label class="discovery-search"><span class="discovery-search__label">搜索模型</span><span class="discovery-search__control"><input type="search" data-discovery-search value="${escapeHtml(query)}" placeholder="输入 ID 或名称，按 Enter 搜索"><button class="discovery-search__button" type="submit">搜索</button></span></label><button class="text-button" type="button" data-toggle-filtered-review>${selectedVisible === visible.length && visible.length ? "取消选择筛选项" : "选择筛选项"}</button><span class="discovery-count" aria-live="polite">${selectedVisible}/${visible.length} 已选</span></form>${payload.warnings.length ? `<div class="discovery-warnings">${payload.warnings.map((warning) => `<p>${escapeHtml(warning)}</p>`).join("")}</div>` : ""}${section("新增", visible, true, true)}${section("已存在", payload.existing, false)}${section("本次未识别", payload.missing, false)}`, actions: '<button class="text-button" data-close-modal>取消</button><button class="text-button text-button--accent" data-import-models>导入所选模型</button>' });
 }
 
 function settingsModal(state) {
@@ -48,10 +48,6 @@ function modelDetailsModal(payload) {
   return modalFrame({ title: model.name || model.id || "模型详情", body: `<div class="settings-paths">${row("Model ID", model.id)}${row("接口协议", model.api)}${row("上下文窗口", model.contextWindow ? String(model.contextWindow) : "")}${row("最大输出", model.maxTokens ? String(model.maxTokens) : "")}</div>`, actions: '<button class="text-button text-button--accent" data-close-modal>关闭</button>' });
 }
 
-function logsModal(payload) {
-  const logs = payload.logs ?? [];
-  return modalFrame({ wide: true, title: "应用日志", description: logs.length ? `最近 ${logs.length} 条记录` : "当前没有日志记录", body: logs.length ? `<pre class="dashboard-log-view">${escapeHtml(logs.join("\n"))}</pre>` : "", actions: '<button class="text-button text-button--accent" data-close-modal>关闭</button>' });
-}
 
 function providerManager(state) {
   const rows = state.providers.length
@@ -80,6 +76,17 @@ function deleteSessionConfirmation(payload) {
   return modalFrame({ tone: "error", title: "删除会话", description: `确定删除“${session.title || "未命名会话"}”？会话记录和附件将永久删除。`, actions: '<button class="text-button" data-return-sessions>取消</button><button class="text-button text-button--danger" data-confirm-delete-session>确认删除</button>' });
 }
 
+function skillManager(payload) {
+  const skills = payload.skills ?? [];
+  const rows = skills.map((skill) => `<article class="skill-row"><div class="skill-row__content"><div class="skill-row__heading"><strong>${escapeHtml(skill.name)}</strong>${skill.locked ? '<span>已登记</span>' : ""}</div><p>${escapeHtml(skill.description || "未提供说明")}</p><code title="${escapeHtml(skill.path)}">${escapeHtml(skill.path)}</code></div><button class="text-button text-button--danger" data-delete-global-skill="${escapeHtml(skill.name)}" aria-label="全局删除 ${escapeHtml(skill.name)}">删除</button></article>`).join("");
+  return modalFrame({ wide: true, title: "OMP Skill", description: skills.length ? `全局目录中共 ${skills.length} 个可用 Skill。` : "全局目录中没有可用 Skill。", body: `<div class="skill-root"><span>全局目录</span><code title="${escapeHtml(payload.root || "")}">${escapeHtml(payload.root || "未配置")}</code></div><div class="skill-list">${rows || '<p class="quiet-empty skill-empty">安装全局 Skill 后会显示在这里。</p>'}</div>`, actions: '<button class="text-button text-button--accent" data-close-modal>关闭</button>' });
+}
+
+function deleteSkillConfirmation(payload) {
+  const skill = payload.skill ?? {};
+  return modalFrame({ tone: "error", title: "全局删除 Skill", description: `确定删除“${skill.name || "未命名 Skill"}”？Skill 目录及其全局登记将被永久删除，无法恢复。`, body: `<div class="delete-skill-path"><span>将删除</span><code>${escapeHtml(skill.path || "")}</code></div>`, actions: '<button class="text-button" data-return-global-skills>取消</button><button class="text-button text-button--danger" data-confirm-delete-skill>确认删除</button>' });
+}
+
 export function renderModal(state) {
   const modal = state.modal; if (!modal) return "";
   if (modal.kind === "operation-loading") return loadingModal(modal.payload);
@@ -88,12 +95,13 @@ export function renderModal(state) {
   if (modal.kind === "discovery-review") return discoveryReview(modal.payload);
   if (modal.kind === "settings") return settingsModal(state);
   if (modal.kind === "model-details") return modelDetailsModal(modal.payload);
-  if (modal.kind === "logs") return logsModal(modal.payload);
   if (modal.kind === "provider-manager") return providerManager(state);
   if (modal.kind === "session-manager") return sessionManager(modal.payload);
   if (modal.kind === "confirm-delete-session") return deleteSessionConfirmation(modal.payload);
+  if (modal.kind === "skill-manager") return skillManager(modal.payload);
+  if (modal.kind === "confirm-delete-skill") return deleteSkillConfirmation(modal.payload);
   if (modal.kind === "model-roles") return modalFrame({ wide: true, title: "模型角色", description: "仅更新本面板中明确修改的角色。", body: renderModelRoles(state, modal.payload), actions: '<button class="text-button" data-close-modal>取消</button><button class="text-button text-button--accent" data-save-roles>保存角色</button>' });
-  if (modal.kind === "add-provider") return modalFrame({ wide: true, title: "选择配置模板", body: `<div class="preset-list">${state.presets.map((preset) => `<button class="preset-row" data-preset-id="${escapeHtml(preset.id)}"><span><strong>${escapeHtml(preset.label)}</strong><small>${escapeHtml(preset.baseUrl)}</small></span><span>→</span></button>`).join("")}</div>`, actions: '<button class="text-button" data-close-modal>取消</button>' });
+  if (modal.kind === "add-provider") return modalFrame({ wide: true, variant: "pills preset-picker", title: "选择配置模板", body: `<div class="preset-list">${state.presets.map((preset) => `<button class="preset-row" data-preset-id="${escapeHtml(preset.id)}"><span><strong>${escapeHtml(preset.label)}</strong><small>${escapeHtml(preset.baseUrl)}</small></span><span aria-hidden="true">→</span></button>`).join("")}</div>`, actions: '<button class="text-button" data-close-modal>取消</button>' });
   if (modal.kind === "confirm-delete-provider" || modal.kind === "confirm-delete-model") return confirmation(modal.kind, modal.payload);
   if (modal.kind === "update-available") return modalFrame({ tone: "success", title: "发现新版本", description: `新版本 v${modal.payload.latestVersion} 已可用。`, actions: '<button class="text-button" data-skip-update>跳过</button><button class="text-button text-button--accent" data-install-update>立即更新</button>' });
   return "";

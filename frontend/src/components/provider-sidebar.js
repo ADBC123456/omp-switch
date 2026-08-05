@@ -7,6 +7,7 @@ const navItems = [
   ["model", "模型管理", "data-open-current-provider"],
   ["provider", "Provider 管理", "data-open-provider-manager"],
   ["session", "会话管理", "data-open-sessions"],
+  ["skill", "OMP Skill", "data-open-global-skills"],
   ["config", "配置文件", "data-open-config-folder"],
   ["settings", "设置", "data-open-settings"]
 ];

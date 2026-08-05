@@ -23,6 +23,12 @@ func TestDefaultPathsUseOMPDirectories(t *testing.T) {
 	if got.OMPSessionsDir != filepath.Join(home, ".omp", "agent", "sessions") {
 		t.Fatalf("OMPSessionsDir = %q", got.OMPSessionsDir)
 	}
+	if got.OMPGlobalSkillsDir != filepath.Join(home, ".agents", "skills") {
+		t.Fatalf("OMPGlobalSkillsDir = %q", got.OMPGlobalSkillsDir)
+	}
+	if got.OMPGlobalSkillsLock != filepath.Join(home, ".agents", ".skill-lock.json") {
+		t.Fatalf("OMPGlobalSkillsLock = %q", got.OMPGlobalSkillsLock)
+	}
 	if got.BackupDir != filepath.Join(home, ".ompswitch", "backups") {
 		t.Fatalf("BackupDir = %q", got.BackupDir)
 	}

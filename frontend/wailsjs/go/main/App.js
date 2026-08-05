@@ -22,6 +22,10 @@ export function CreateProvider(arg1) {
   return window['go']['main']['App']['CreateProvider'](arg1);
 }
 
+export function DeleteGlobalSkill(arg1) {
+  return window['go']['main']['App']['DeleteGlobalSkill'](arg1);
+}
+
 export function DeleteModel(arg1, arg2) {
   return window['go']['main']['App']['DeleteModel'](arg1, arg2);
 }
@@ -66,6 +70,10 @@ export function LaunchOMP(arg1, arg2) {
   return window['go']['main']['App']['LaunchOMP'](arg1, arg2);
 }
 
+export function ListGlobalSkills() {
+  return window['go']['main']['App']['ListGlobalSkills']();
+}
+
 export function ListProviders() {
   return window['go']['main']['App']['ListProviders']();
 }
@@ -82,10 +90,6 @@ export function OpenConfigFolder() {
   return window['go']['main']['App']['OpenConfigFolder']();
 }
 
-export function RestartOMP() {
-  return window['go']['main']['App']['RestartOMP']();
-}
-
 export function SaveModel(arg1, arg2, arg3) {
   return window['go']['main']['App']['SaveModel'](arg1, arg2, arg3);
 }
@@ -96,6 +100,10 @@ export function SetSelectedModel(arg1, arg2) {
 
 export function SetSelectedProvider(arg1) {
   return window['go']['main']['App']['SetSelectedProvider'](arg1);
+}
+
+export function TestModel(arg1, arg2) {
+  return window['go']['main']['App']['TestModel'](arg1, arg2);
 }
 
 export function UpdateModelRoles(arg1) {

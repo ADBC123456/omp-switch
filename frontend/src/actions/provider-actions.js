@@ -49,7 +49,10 @@ export function createProviderActions({ root, api, store, providerForm, feedback
   }
 
   function updateReviewQuery(query) {
-    store.setState((state) => state.modal?.kind === "discovery-review" ? { ...state, modal: { ...state.modal, payload: { ...state.modal.payload, query } } } : state);
+    store.setState((state) => {
+      if (state.modal?.kind !== "discovery-review" || state.modal.payload.query === query) return state;
+      return { ...state, modal: { ...state.modal, payload: { ...state.modal.payload, query } } };
+    });
   }
   function toggleReviewModel(id, checked) {
     store.setState((state) => {

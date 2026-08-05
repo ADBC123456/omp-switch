@@ -34,11 +34,12 @@
 .theme-switcher__option:active { transform: scale(.9); }
 
 .theme-switcher__option[aria-pressed="true"] {
-  border-color: var(--border-color);
+  border-color: var(--color-divider-strong);
   background: var(--card-bg-strong);
   color: var(--text-primary);
-  box-shadow: inset 0 1px 0 var(--border-highlight), 0 4px 12px var(--shadow-color);
+  box-shadow: none;
 }
+
 
 @media (prefers-reduced-motion: reduce) {
   .theme-switcher__option { transition-duration: 1ms; }

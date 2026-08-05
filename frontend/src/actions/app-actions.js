@@ -23,12 +23,40 @@ export function createAppActions({ root, api, store, feedback, applyTheme }) {
     catch (error) { feedback.showError("启动 OMP 失败", error); }
     finally { store.setState((current) => ({ ...current, launchPending: false })); }
   }
-  async function restartOMP() {
-    if (store.getState().launchPending) return;
-    store.setState((current) => ({ ...current, launchPending: true, modelMenuOpen: false }));
-    try { await api.restartOMP(); }
-    catch (error) { feedback.showError("重新启动 OMP 失败", error); }
-    finally { store.setState((current) => ({ ...current, launchPending: false })); }
+  async function testModel() {
+    const state = store.getState();
+    const provider = currentProvider(state);
+    const modelId = provider?.selectedModelId || provider?.models?.[0]?.id;
+    if (!provider || !modelId || state.testPending) return;
+    store.setState((current) => ({ ...current, testPending: true, modelMenuOpen: false }));
+    feedback.showLoading("测试模型", "正在向上游发送短消息 Hi…");
+    try {
+      const result = await api.testModel(provider.id, modelId);
+      feedback.showResult({ status: "success", title: result.title || "模型测试成功", message: "上游已成功响应短消息。", details: result.lines ?? [] });
+    } catch (error) { feedback.showError("模型测试失败", error); }
+    finally { store.setState((current) => ({ ...current, testPending: false })); }
+  }
+  async function openGlobalSkills() {
+    feedback.showLoading("OMP Skill", "正在读取全局 Skill…");
+    try {
+      const inventory = await api.listGlobalSkills();
+      store.setState((state) => ({ ...state, modal: { kind: "skill-manager", payload: inventory } }));
+    } catch (error) { feedback.showError("读取全局 Skill 失败", error); }
+  }
+  function requestDeleteGlobalSkill(name) {
+    const inventory = store.getState().modal?.payload;
+    const skill = inventory?.skills?.find((item) => item.name === name);
+    if (!skill) return;
+    store.setState((state) => ({ ...state, modal: { kind: "confirm-delete-skill", payload: { skill, inventory } } }));
+  }
+  async function confirmDeleteGlobalSkill() {
+    const payload = store.getState().modal?.payload;
+    if (!payload?.skill?.name) return;
+    feedback.showLoading("删除 OMP Skill", `正在全局删除 ${payload.skill.name}…`);
+    try {
+      const inventory = await api.deleteGlobalSkill(payload.skill.name);
+      store.setState((state) => ({ ...state, modal: { kind: "skill-manager", payload: inventory } }));
+    } catch (error) { feedback.showError("删除全局 Skill 失败", error); }
   }
   async function openSessions() {
     store.setState((state) => ({ ...state, modal: { kind: "operation-loading", payload: { title: "加载会话", message: "正在读取 OMP 会话…" } } }));
@@ -84,5 +112,5 @@ export function createAppActions({ root, api, store, feedback, applyTheme }) {
   }
   async function skipUpdate() { try { await api.markUpdateChecked(); } catch (error) { feedback.showError("记录跳过失败", error); } store.setState((state) => ({ ...state, modal: null })); }
   async function installUpdate() { try { await api.installUpdate(); api.closeWindow(); } catch (error) { feedback.showError("更新失败", error); } }
-  return { selectProvider, selectModel, directLaunch, restartOMP, openSessions, continueSession, requestDeleteSession, confirmDeleteSession, saveSettings, openRoles, updateRole, saveRoles, checkUpdate, skipUpdate, installUpdate };
+  return { selectProvider, selectModel, directLaunch, testModel, openGlobalSkills, requestDeleteGlobalSkill, confirmDeleteGlobalSkill, openSessions, continueSession, requestDeleteSession, confirmDeleteSession, saveSettings, openRoles, updateRole, saveRoles, checkUpdate, skipUpdate, installUpdate };
 }

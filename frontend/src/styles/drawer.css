@@ -16,12 +16,12 @@
   display: flex;
   flex-direction: column;
   overflow: hidden;
-  border: 1px solid var(--border-highlight, var(--line-subtle));
-  border-radius: 22px;
-  background: color-mix(in srgb, var(--card-bg-strong, var(--surface-raised)) 90%, transparent);
-  backdrop-filter: blur(30px) saturate(135%);
-  -webkit-backdrop-filter: blur(30px) saturate(135%);
-  box-shadow: var(--glass-shadow, var(--shadow-drawer));
+  border: 1px solid var(--color-divider);
+  border-radius: var(--radius-xl);
+  background: color-mix(in srgb, var(--card-bg-strong) 92%, transparent);
+  backdrop-filter: blur(30px) saturate(125%);
+  -webkit-backdrop-filter: blur(30px) saturate(125%);
+  box-shadow: var(--shadow-drawer);
 }
 
 
@@ -36,7 +36,7 @@
   margin: 8px 0 0;
   font-family: var(--font-display);
   font-size: 23px;
-  font-weight: 500;
+  font-weight: 650;
 }
 
 .drawer-body {
@@ -49,7 +49,7 @@
 
 .drawer-close {
   align-self: flex-start;
-  font-size: 11px;
+  font-size: 12px;
 }
 
 .form-section {
@@ -65,12 +65,13 @@
   display: block;
   margin-bottom: 7px;
   color: var(--ink-secondary);
-  font-size: 11px;
+  font-size: 12px;
+  font-weight: 580;
 }
 
 .form-field input,
 .form-field select {
-  font-size: 11px;
+  font-size: 12px;
 }
 
 .drawer-footer {
@@ -93,8 +94,8 @@
 }
 
 .drawer-status {
-  color: var(--ink-muted);
-  font-size: 10px;
+  color: var(--ink-secondary);
+  font-size: 11px;
 }
 
 .drawer-status[data-status="saving"] {
@@ -117,8 +118,8 @@
 
 .model-manage__empty {
   margin: 8px 0 0;
-  color: var(--ink-muted);
-  font-size: 11px;
+  color: var(--ink-secondary);
+  font-size: 12px;
 }
 
 .model-manage__list {
@@ -130,12 +131,15 @@
 }
 
 .model-manage__row {
+  margin-bottom: 2px;
+  padding: 9px 10px;
   display: flex;
   align-items: center;
   gap: 8px;
-  padding: 9px 0;
+  border-radius: var(--radius-sm);
   border-bottom: 1px solid color-mix(in srgb, var(--line-subtle) 55%, transparent);
 }
+.model-manage__row:hover { background: var(--color-hover-bg); }
 
 .model-manage__name {
   font-size: 12px;
@@ -145,8 +149,8 @@
 
 .model-manage__meta {
   flex: 1 1 auto;
-  font-size: 10px;
-  color: var(--ink-muted);
+  font-size: 11px;
+  color: var(--ink-secondary);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -154,12 +158,12 @@
 
 .model-manage__remove {
   flex: 0 0 auto;
-  width: 22px;
-  height: 22px;
-  border: none;
-  border-radius: 4px;
+  width: var(--control-sm);
+  height: var(--control-sm);
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
   background: transparent;
-  color: var(--danger, #d33);
+  color: var(--danger);
   cursor: pointer;
   font-size: 14px;
   line-height: 1;
@@ -195,13 +199,13 @@
 }
 
 .model-manage__edit strong { font-size: 12px; }
-.model-manage__edit small { margin-top: 4px; color: var(--ink-muted); font-size: 10px; font-weight: 400; }
+.model-manage__edit small { margin-top: 4px; color: var(--ink-secondary); font-size: 11px; font-weight: 450; }
 
 .model-manage__remove {
   width: auto;
-  min-height: 32px;
-  padding: 0 8px;
-  font-size: 10px;
+  min-height: var(--control-sm);
+  padding: 0 10px;
+  font-size: 11px;
 }
 
 .model-manage__row.is-conflict {
@@ -210,4 +214,10 @@
 }
 
 .drawer-footer__actions { gap: 16px; }
-.drawer-footer .text-button { min-height: 36px; }
+.drawer-footer .text-button { min-height: var(--control-md); }
+
+
+:root[data-theme="dark"] .drawer {
+  border-color: var(--color-divider-strong);
+  box-shadow: var(--shadow-drawer);
+}

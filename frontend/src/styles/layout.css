@@ -51,8 +51,6 @@
   inset: 0;
   content: "";
   background: var(--color-bg-right-glass);
-  backdrop-filter: blur(24px);
-  -webkit-backdrop-filter: blur(24px);
   pointer-events: none;
 }
 
@@ -75,7 +73,7 @@
 .topbar-context {
   color: var(--ink-muted);
   font-family: var(--font-display);
-  font-size: 10px;
+  font-size: 11px;
   letter-spacing: 0.08em;
 }
 

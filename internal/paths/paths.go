@@ -10,6 +10,8 @@ type AppPaths struct {
 	OMPModelsPath       string
 	OMPConfigPath       string
 	OMPSessionsDir      string
+	OMPGlobalSkillsDir  string
+	OMPGlobalSkillsLock string
 	BackupDir           string
 }
 
@@ -23,6 +25,8 @@ func DefaultPaths() AppPaths {
 		OMPModelsPath:       filepath.Join(home, ".omp", "agent", "models.yml"),
 		OMPConfigPath:       filepath.Join(home, ".omp", "agent", "config.yml"),
 		OMPSessionsDir:      filepath.Join(home, ".omp", "agent", "sessions"),
+		OMPGlobalSkillsDir:  filepath.Join(home, ".agents", "skills"),
+		OMPGlobalSkillsLock: filepath.Join(home, ".agents", ".skill-lock.json"),
 		BackupDir:           filepath.Join(home, ".ompswitch", "backups"),
 	}
 }

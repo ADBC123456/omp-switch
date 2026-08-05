@@ -18,11 +18,12 @@ import (
 	"ompswitch/internal/paths"
 	"ompswitch/internal/provider"
 	"ompswitch/internal/sessions"
+	"ompswitch/internal/skills"
 	"ompswitch/internal/system"
 	"ompswitch/internal/updater"
 )
 
-const appVersion = "1.0"
+var appVersion = "1.0.0"
 const configChangedEvent = "omp:config-changed"
 const updateAvailableEvent = "omp:update-available"
 
@@ -30,16 +31,6 @@ type ProviderMutationResult struct {
 	State           config.AppState `json:"state"`
 	FinalProviderID string          `json:"finalProviderId"`
 	Adjusted        bool            `json:"adjusted"`
-}
-
-type managedOMPProcess interface {
-	Running() bool
-	Stop() error
-}
-
-type ompLaunchSpec struct {
-	preview    omp.LaunchPreview
-	workingDir string
 }
 
 type App struct {
@@ -50,11 +41,8 @@ type App struct {
 	discoveryMu         sync.Mutex
 	discoveryByRequest  map[string]context.CancelFunc
 	discoveryByProvider map[string]string
-	ompMu               sync.Mutex
-	managedOMP          managedOMPProcess
-	lastOMPLaunch       *ompLaunchSpec
 	selectLaunchDir     func(string) (string, error)
-	startManagedOMP     func(omp.LaunchPreview, string) (managedOMPProcess, error)
+	startManagedOMP     func(omp.LaunchPreview, string) error
 	watcher             *fsnotify.Watcher
 	watcherStop         chan struct{}
 	writeMu             sync.Mutex
@@ -64,8 +52,9 @@ type App struct {
 func NewApp() *App {
 	p := paths.DefaultPaths()
 	app := &App{service: config.NewService(p), paths: p, discoveryByRequest: map[string]context.CancelFunc{}, discoveryByProvider: map[string]string{}}
-	app.startManagedOMP = func(preview omp.LaunchPreview, workingDir string) (managedOMPProcess, error) {
-		return omp.StartManaged(preview, workingDir)
+	app.startManagedOMP = func(preview omp.LaunchPreview, workingDir string) error {
+		_, err := omp.StartManaged(preview, workingDir)
+		return err
 	}
 	return app
 }
@@ -85,8 +74,9 @@ func (a *App) startup(ctx context.Context) {
 		a.discoveryByProvider = map[string]string{}
 	}
 	if a.startManagedOMP == nil {
-		a.startManagedOMP = func(preview omp.LaunchPreview, workingDir string) (managedOMPProcess, error) {
-			return omp.StartManaged(preview, workingDir)
+		a.startManagedOMP = func(preview omp.LaunchPreview, workingDir string) error {
+			_, err := omp.StartManaged(preview, workingDir)
+			return err
 		}
 	}
 	_, _ = a.service.Load()
@@ -495,15 +485,7 @@ func (a *App) ExecuteLaunchOMP(providerID, modelID string) error {
 	}
 	a.mutationMu.Unlock()
 
-	process, e := a.startManagedOMP(preview, workingDir)
-	if e != nil {
-		return e
-	}
-	a.ompMu.Lock()
-	a.managedOMP = process
-	a.lastOMPLaunch = &ompLaunchSpec{preview: preview, workingDir: workingDir}
-	a.ompMu.Unlock()
-	return nil
+	return a.startManagedOMP(preview, workingDir)
 }
 
 func (a *App) ListSessions() ([]sessions.Info, error) {
@@ -531,15 +513,7 @@ func (a *App) ContinueSession(id string) error {
 	if err != nil {
 		return err
 	}
-	process, err := a.startManagedOMP(preview, info.WorkingDir)
-	if err != nil {
-		return err
-	}
-	a.ompMu.Lock()
-	a.managedOMP = process
-	a.lastOMPLaunch = &ompLaunchSpec{preview: preview, workingDir: info.WorkingDir}
-	a.ompMu.Unlock()
-	return nil
+	return a.startManagedOMP(preview, info.WorkingDir)
 }
 func (a *App) chooseLaunchDirectory(defaultDirectory string) (string, error) {
 	if a.selectLaunchDir != nil {
@@ -548,23 +522,45 @@ func (a *App) chooseLaunchDirectory(defaultDirectory string) (string, error) {
 	return runtime.OpenDirectoryDialog(a.ctx, runtime.OpenDialogOptions{Title: "选择 OMP 启动目录", DefaultDirectory: defaultDirectory})
 }
 
-func (a *App) RestartOMP() error {
-	a.ompMu.Lock()
-	defer a.ompMu.Unlock()
-	if a.lastOMPLaunch == nil {
-		return errors.New("本应用尚未启动 OMP")
+func (a *App) ListGlobalSkills() (skills.Inventory, error) {
+	return skills.Manager{Root: a.paths.OMPGlobalSkillsDir, LockPath: a.paths.OMPGlobalSkillsLock}.List()
+}
+
+func (a *App) DeleteGlobalSkill(name string) (skills.Inventory, error) {
+	return skills.Manager{Root: a.paths.OMPGlobalSkillsDir, LockPath: a.paths.OMPGlobalSkillsLock}.Delete(name)
+}
+
+func (a *App) TestModel(providerID, modelID string) (provider.ConnectionTestResult, error) {
+	cfg, err := a.service.Load()
+	if err != nil {
+		return provider.ConnectionTestResult{}, err
 	}
-	if a.managedOMP != nil && a.managedOMP.Running() {
-		if e := a.managedOMP.Stop(); e != nil {
-			return e
+	configured, err := cfg.ProviderByID(strings.TrimSpace(providerID))
+	if err != nil {
+		return provider.ConnectionTestResult{}, err
+	}
+	modelID = strings.TrimSpace(modelID)
+	if err = provider.EnsureModel(configured, modelID); err != nil {
+		return provider.ConnectionTestResult{}, err
+	}
+	var model provider.ModelInfo
+	for _, candidate := range configured.Models {
+		if candidate.ID == modelID {
+			model = candidate
+			break
 		}
 	}
-	process, e := a.startManagedOMP(a.lastOMPLaunch.preview, a.lastOMPLaunch.workingDir)
-	if e != nil {
-		return e
+	key, commandValue := provider.ResolveAPIKey(configured.APIKey, os.LookupEnv)
+	if commandValue {
+		return provider.ConnectionTestResult{}, errors.New("API Key 是命令形式，Switch 不会执行命令")
 	}
-	a.managedOMP = process
-	return nil
+	parent := a.ctx
+	if parent == nil {
+		parent = context.Background()
+	}
+	requestContext, cancel := context.WithTimeout(parent, 20*time.Second)
+	defer cancel()
+	return provider.TestModel(requestContext, configured, model, key, provider.ModelTestOptions{})
 }
 func (a *App) OpenConfigFolder() error {
 	runtime.BrowserOpenURL(a.ctx, "file:///"+filepath.ToSlash(filepath.Dir(a.paths.OMPSwitchConfigPath)))
