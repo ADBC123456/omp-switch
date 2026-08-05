@@ -1,0 +1,177 @@
+name: Build Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  build-windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.24'
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install Wails
+        run: go install github.com/wailsapp/wails/v2/cmd/wails@latest
+
+      - name: Build for Windows
+        run: |
+          cd frontend
+          npm install
+          npm run build
+          cd ..
+          wails build -platform windows/amd64
+
+      - name: Prepare release assets
+        run: |
+          mkdir release
+          move "build\bin\OMP-Switch.exe" "release\OMP-Switch-${{ github.ref_name }}-windows-amd64.exe"
+        shell: cmd
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: windows-amd64
+          path: release/
+
+  build-macos:
+    strategy:
+      matrix:
+        arch: [amd64, arm64]
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.24'
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install Wails
+        run: go install github.com/wailsapp/wails/v2/cmd/wails@latest
+
+      - name: Build for macOS (${{ matrix.arch }})
+        run: |
+          cd frontend
+          npm install
+          npm run build
+          cd ..
+          wails build -platform darwin/${{ matrix.arch }}
+
+      - name: Prepare release assets
+        run: |
+          echo "=== build/bin contents ==="
+          ls -la build/bin/
+          mkdir -p release
+          cd "build/bin"
+          # Find the .app directory
+          APP_NAME=$(ls -d *.app 2>/dev/null | head -1)
+          if [ -z "$APP_NAME" ]; then
+            echo "No .app found, checking for executable..."
+            ls -la
+            exit 1
+          fi
+          mv "$APP_NAME" "OMP-Switch-${{ github.ref_name }}-macos-${{ matrix.arch }}.app"
+          zip -r "../../release/OMP-Switch-${{ github.ref_name }}-macos-${{ matrix.arch }}.zip" "OMP-Switch-${{ github.ref_name }}-macos-${{ matrix.arch }}.app"
+        shell: bash
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: macos-${{ matrix.arch }}
+          path: release/
+
+  build-linux:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - id: webkit2-41
+            runner: ubuntu-22.04
+            webkit_tag: webkit2_41
+            webkit_dev_package: libwebkit2gtk-4.1-dev
+          - id: webkit2-40
+            runner: ubuntu-22.04
+            webkit_tag: webkit2_40
+            webkit_dev_package: libwebkit2gtk-4.0-dev
+    runs-on: ${{ matrix.runner }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.24'
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install dependencies
+        run: sudo apt-get update && sudo apt-get install -y libgtk-3-dev ${{ matrix.webkit_dev_package }}
+
+      - name: Install Wails
+        run: go install github.com/wailsapp/wails/v2/cmd/wails@latest
+
+      - name: Build for Linux
+        run: |
+          cd frontend
+          npm install
+          npm run build
+          cd ..
+          wails build -platform linux/amd64 -tags ${{ matrix.webkit_tag }}
+
+      - name: Prepare release assets
+        run: |
+          mkdir -p release
+          mv build/bin/OMP-Switch release/OMP-Switch-${{ github.ref_name }}-linux-amd64-${{ matrix.id }}
+          cd release
+          tar -czf OMP-Switch-${{ github.ref_name }}-linux-amd64-${{ matrix.id }}.tar.gz OMP-Switch-${{ github.ref_name }}-linux-amd64-${{ matrix.id }}
+          rm OMP-Switch-${{ github.ref_name }}-linux-amd64-${{ matrix.id }}
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: linux-amd64-${{ matrix.id }}
+          path: release/
+
+  publish:
+    needs: [build-windows, build-macos, build-linux]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+
+      - name: Collect release assets
+        run: |
+          mkdir -p publish
+          find artifacts -type f \( -name "*.exe" -o -name "*.zip" -o -name "*.tar.gz" \) -exec cp {} publish/ \;
+          echo "=== Release assets ==="
+          ls -la publish/
+
+      - uses: softprops/action-gh-release@v2
+        with:
+          files: publish/*
+          name: OMP Switch ${{ github.ref_name }}
+          body: |
+            ## 本次更新
+
+            - 管理 OMP Provider、模型与十个模型角色。
+            - 显式识别并审查上游模型，支持筛选和批量导入。
+            - Provider 与模型编辑改为显式保存，敏感字段不会回显。
+            - 支持自定义请求头身份：Codex、Claude Code、Grok Build。
+            - Linux 同时发布 WebKitGTK 4.1 与 4.0 ABI 构建产物。
+
+            ## 下载
+
+            根据系统选择对应安装包：Windows、macOS 或 Linux。

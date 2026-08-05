@@ -1,0 +1,209 @@
+#app {
+  width: 100vw;
+  height: 100vh;
+  padding: 0;
+  background: transparent;
+}
+
+[data-content-layer],
+[data-drawer-layer],
+[data-modal-layer] {
+  display: contents;
+}
+
+.window-shell {
+  position: relative;
+  display: flex;
+  width: 100vw;
+  height: 100vh;
+  overflow: hidden;
+  border: 1px solid var(--color-divider);
+  border-radius: var(--radius-shell);
+  background: var(--color-bg-right-base);
+}
+
+.main-panel {
+  position: relative;
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  background: var(--color-bg-right-base);
+}
+
+.main-panel::before {
+  position: absolute;
+  top: 30%;
+  right: -10%;
+  width: 800px;
+  height: 800px;
+  aspect-ratio: 1;
+  content: "";
+  border-radius: 50%;
+  background: radial-gradient(circle, var(--color-bg-halo) 0%, transparent 60%);
+  filter: blur(120px);
+  pointer-events: none;
+}
+
+.main-panel::after {
+  position: absolute;
+  inset: 0;
+  content: "";
+  background: var(--color-bg-right-glass);
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
+  pointer-events: none;
+}
+
+.main-panel > * {
+  position: relative;
+  z-index: 2;
+}
+
+.main-topbar {
+  min-height: 54px;
+  padding: 0 18px 0 28px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  --wails-draggable: drag;
+  cursor: move;
+  user-select: none;
+}
+
+.topbar-context {
+  color: var(--ink-muted);
+  font-family: var(--font-display);
+  font-size: 10px;
+  letter-spacing: 0.08em;
+}
+
+.main-topbar *,
+.aside-header * {
+  --wails-draggable: drag;
+  cursor: move;
+  user-select: none;
+}
+
+.window-actions {
+  display: flex;
+  align-items: center;
+  gap: 15px;
+  --wails-draggable: no-drag;
+  cursor: default;
+  user-select: auto;
+}
+
+.window-actions * {
+  --wails-draggable: no-drag;
+  cursor: default;
+  user-select: auto;
+}
+
+.window-actions__divider {
+  width: 1px;
+  height: 15px;
+  background: var(--color-divider);
+}
+
+.window-symbol {
+  padding: 3px;
+  color: var(--ink-muted);
+  font-size: 16px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.window-symbol:hover {
+  color: var(--ink);
+}
+
+.window-symbol--danger:hover {
+  color: var(--danger);
+}
+
+.theme-toggle {
+  position: relative;
+  width: 34px;
+  height: 34px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  color: var(--ink-secondary);
+  cursor: pointer;
+}
+
+.theme-toggle:hover {
+  background: var(--color-hover-bg);
+  color: var(--ink);
+}
+
+.theme-toggle__ring,
+.theme-toggle__sun,
+.theme-toggle__moon {
+  position: absolute;
+  pointer-events: none;
+}
+
+.theme-toggle__ring {
+  inset: 2px;
+  border: 1px solid currentColor;
+  border-radius: 50%;
+  opacity: 0;
+  transform: scale(.72);
+}
+
+.theme-toggle__sun {
+  width: 18px;
+  height: 18px;
+}
+
+.theme-toggle__sun i {
+  position: absolute;
+  inset: 5px;
+  border: 1.5px solid currentColor;
+  border-radius: 50%;
+}
+
+.theme-toggle__sun b {
+  position: absolute;
+  top: 0;
+  left: 8.25px;
+  width: 1.5px;
+  height: 3px;
+  border-radius: 1px;
+  background: currentColor;
+  transform-origin: .75px 9px;
+}
+
+.theme-toggle__sun b:nth-of-type(2) { transform: rotate(45deg); }
+.theme-toggle__sun b:nth-of-type(3) { transform: rotate(90deg); }
+.theme-toggle__sun b:nth-of-type(4) { transform: rotate(135deg); }
+.theme-toggle__sun b:nth-of-type(5) { transform: rotate(180deg); }
+.theme-toggle__sun b:nth-of-type(6) { transform: rotate(225deg); }
+.theme-toggle__sun b:nth-of-type(7) { transform: rotate(270deg); }
+.theme-toggle__sun b:nth-of-type(8) { transform: rotate(315deg); }
+
+.theme-toggle__moon {
+  width: 15px;
+  height: 15px;
+  border: 1.5px solid currentColor;
+  border-radius: 50%;
+  box-shadow: inset -4px 0 0 -1px var(--color-bg-right-base);
+  transform: rotate(-22deg);
+}
+
+:root[data-theme="light"] .theme-toggle__sun,
+:root[data-theme="dark"] .theme-toggle__moon {
+  opacity: 0;
+  transform: rotate(45deg) scale(.55);
+}
+
+:root[data-theme="light"] .theme-toggle__moon {
+  opacity: 1;
+}
+
+:root[data-theme="dark"] .theme-toggle__sun {
+  opacity: 1;
+}
