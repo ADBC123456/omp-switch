@@ -15,11 +15,11 @@ export function createProviderFormController({ root, api, store, feedback }) {
   function openExisting(providerId) {
     const provider = store.getState().providers.find((item) => item.id === providerId);
     if (!provider) return;
-    store.setState((state) => ({ ...state, selectedProviderId: providerId, drawer: { kind: "provider", originalId: providerId, draft: createDraftFromProvider(provider) } }));
+    store.setState((state) => ({ ...state, selectedProviderId: providerId, drawer: { kind: "provider", originalId: providerId, draft: createDraftFromProvider(provider), selectedModelIDs: [] } }));
   }
 
   function openNew(preset) {
-    store.setState((state) => ({ ...state, modal: null, drawer: { kind: "provider", originalId: "", draft: createDraftFromPreset(preset) } }));
+    store.setState((state) => ({ ...state, modal: null, drawer: { kind: "provider", originalId: "", draft: createDraftFromPreset(preset), selectedModelIDs: [] } }));
   }
 
   function read() {
@@ -45,7 +45,7 @@ export function createProviderFormController({ root, api, store, feedback }) {
       const result = drawer.originalId ? await api.updateProvider(drawer.originalId, input) : await api.createProvider(input);
       const finalId = result.finalProviderId;
       const view = result.state.providers.find((item) => item.id === finalId);
-      store.setState((state) => mergeBackendState(state, result.state, { selectedProviderId: finalId, drawer: { kind: "provider", originalId: finalId, draft: createDraftFromProvider(view) } }));
+      store.setState((state) => mergeBackendState(state, result.state, { selectedProviderId: finalId, drawer: { kind: "provider", originalId: finalId, draft: createDraftFromProvider(view), selectedModelIDs: [] } }));
       queueMicrotask(() => setStatus(root, "saved", result.adjusted ? `Provider ID 已调整为 ${finalId}` : "已保存"));
       return result;
     } catch (error) {

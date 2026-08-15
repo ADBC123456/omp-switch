@@ -21,7 +21,7 @@ export function CreateProvider(arg1:provider.SaveInput):Promise<main.ProviderMut
 
 export function DeleteGlobalSkill(arg1:string):Promise<skills.Inventory>;
 
-export function DeleteModel(arg1:string,arg2:string):Promise<config.AppState>;
+export function DeleteModels(arg1:string,arg2:Array<string>):Promise<config.AppState>;
 
 export function DeleteProvider(arg1:string):Promise<config.AppState>;
 
@@ -33,7 +33,7 @@ export function FetchModels(arg1:string,arg2:string):Promise<provider.DiscoveryR
 
 export function GetAppState():Promise<config.AppState>;
 
-export function GetModelDeleteImpact(arg1:string,arg2:string):Promise<Array<string>>;
+export function GetModelsDeleteImpact(arg1:string,arg2:Array<string>):Promise<Array<string>>;
 
 export function GetProviderDeleteImpact(arg1:string):Promise<Array<string>>;
 

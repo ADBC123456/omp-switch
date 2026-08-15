@@ -114,20 +114,46 @@ export function createProviderActions({ root, api, store, providerForm, feedback
     }
   }
 
-  async function requestDeleteModel(modelId) {
+  function selectedManagedModelIDs() {
+    const state = store.getState();
+    const provider = currentProvider(state);
+    const known = new Set(provider?.models?.map((model) => model.id) ?? []);
+    return [...new Set(state.drawer?.selectedModelIDs ?? [])].filter((id) => known.has(id));
+  }
+  function setManagedModelSelection(modelIDs) {
+    store.setState((state) => {
+      if (state.drawer?.kind !== "provider") return state;
+      const provider = currentProvider(state);
+      const known = new Set(provider?.models?.map((model) => model.id) ?? []);
+      const selectedModelIDs = [...new Set(modelIDs)].filter((id) => known.has(id));
+      return { ...state, drawer: { ...state.drawer, selectedModelIDs } };
+    });
+  }
+  function toggleManagedModelSelection(modelID, selected) {
+    const modelIDs = new Set(selectedManagedModelIDs());
+    if (selected) modelIDs.add(modelID); else modelIDs.delete(modelID);
+    setManagedModelSelection(modelIDs);
+  }
+  function toggleAllManagedModels() {
+    const state = store.getState();
+    const modelIDs = currentProvider(state)?.models?.map((model) => model.id) ?? [];
+    setManagedModelSelection(selectedManagedModelIDs().length === modelIDs.length ? [] : modelIDs);
+  }
+  async function requestDeleteModels() {
     const provider = currentProvider(store.getState());
-    if (!provider) return;
+    const modelIDs = selectedManagedModelIDs();
+    if (!provider || !modelIDs.length) return;
     try {
-      const roles = await api.getModelDeleteImpact(provider.id, modelId);
-      store.setState((state) => ({ ...state, modal: { kind: "confirm-delete-model", payload: { providerId: provider.id, modelId, roles } } }));
+      const roles = await api.getModelsDeleteImpact(provider.id, modelIDs);
+      store.setState((state) => ({ ...state, modal: { kind: "confirm-delete-models", payload: { providerId: provider.id, modelIDs, roles } } }));
     } catch (error) { feedback.showError("检查模型引用失败", error); }
   }
-  async function confirmDeleteModel() {
+  async function confirmDeleteModels() {
     const payload = store.getState().modal?.payload;
-    if (!payload?.providerId || !payload?.modelId) return;
+    if (!payload?.providerId || !payload?.modelIDs?.length) return;
     try {
-      const backend = await api.deleteModel(payload.providerId, payload.modelId);
-      store.setState((state) => adoptBackendState(state, backend, { selectedProviderId: payload.providerId }));
+      const backend = await api.deleteModels(payload.providerId, payload.modelIDs);
+      store.setState((state) => adoptBackendState(state, backend, { selectedProviderId: payload.providerId, drawer: state.drawer?.kind === "provider" ? { ...state.drawer, selectedModelIDs: [] } : state.drawer }));
     } catch (error) { feedback.showError("删除模型失败", error); }
   }
 
@@ -150,5 +176,5 @@ export function createProviderActions({ root, api, store, providerForm, feedback
     } catch (error) { feedback.showError("删除 Provider 失败", error); }
   }
 
-  return { createFromPreset, fetchModels, cancelDiscovery, updateReviewQuery, toggleReviewModel, toggleFilteredReview, importModels, openModelEditor, saveModel, requestDeleteModel, confirmDeleteModel, requestDeleteProvider, confirmDeleteProvider, reviewCounts: (payload) => discoveryCounts(payload.added, payload.query, new Set(payload.selected)), visibleReviewModels: (payload) => filterNewModels(payload.added, payload.query) };
+  return { createFromPreset, fetchModels, cancelDiscovery, updateReviewQuery, toggleReviewModel, toggleFilteredReview, importModels, openModelEditor, saveModel, selectedManagedModelIDs, setManagedModelSelection, toggleManagedModelSelection, toggleAllManagedModels, requestDeleteModels, confirmDeleteModels, requestDeleteProvider, confirmDeleteProvider, reviewCounts: (payload) => discoveryCounts(payload.added, payload.query, new Set(payload.selected)), visibleReviewModels: (payload) => filterNewModels(payload.added, payload.query) };
 }

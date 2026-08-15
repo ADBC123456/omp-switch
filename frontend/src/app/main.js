@@ -82,9 +82,11 @@ const clickActions = {
   "data-toggle-filtered-review": providerActions.toggleFilteredReview,
   "data-add-model": () => providerActions.openModelEditor(),
   "data-save-model": providerActions.saveModel,
+  "data-toggle-all-managed-models": providerActions.toggleAllManagedModels,
+  "data-request-delete-models": providerActions.requestDeleteModels,
   "data-delete-provider": providerActions.requestDeleteProvider,
   "data-confirm-delete-provider": providerActions.confirmDeleteProvider,
-  "data-confirm-delete-model": providerActions.confirmDeleteModel,
+  "data-confirm-delete-models": providerActions.confirmDeleteModels,
   "data-confirm-delete-session": appActions.confirmDeleteSession,
   "data-confirm-delete-skill": appActions.confirmDeleteGlobalSkill,
   "data-return-global-skills": () => store.setState((state) => ({ ...state, modal: { kind: "skill-manager", payload: state.modal?.payload?.inventory ?? { root: "", skills: [] } } })),
@@ -102,6 +104,9 @@ const clickActions = {
 };
 
 root.addEventListener("click", async (event) => {
+  if (store.getState().providerMenuOpen && !event.target.closest(".provider-switcher, [data-toggle-provider-switcher]")) {
+    store.setState((state) => ({ ...state, providerMenuOpen: false }));
+  }
   const target = event.target.closest("button");
   if (!target) { if (event.target.classList.contains("modal-backdrop")) await closeModal(); return; }
   if (target.dataset.providerId) return appActions.selectProvider(target.dataset.providerId);
@@ -125,7 +130,6 @@ root.addEventListener("click", async (event) => {
   if (target.dataset.deleteGlobalSkill) return appActions.requestDeleteGlobalSkill(target.dataset.deleteGlobalSkill);
   if (target.dataset.presetId) return providerActions.createFromPreset(target.dataset.presetId);
   if (target.dataset.editModel) return providerActions.openModelEditor(target.dataset.editModel);
-  if (target.dataset.deleteModel) return providerActions.requestDeleteModel(target.dataset.deleteModel);
   if (target.hasAttribute("data-toggle-theme")) return themeManager.toggle(target).catch((error) => feedback.showError("切换主题失败", error));
   if (target.dataset.convertRole) return appActions.updateRole(target.dataset.convertRole, { model: "", thinking: "" });
   const attribute = Object.keys(clickActions).find((name) => target.hasAttribute(name));
@@ -145,6 +149,81 @@ root.addEventListener("change", (event) => {
   if (target.dataset.reviewModel) providerActions.toggleReviewModel(target.dataset.reviewModel, target.checked);
   if (target.dataset.roleModel) appActions.updateRole(target.dataset.roleModel, { model: target.value, thinking: "" });
   if (target.dataset.roleThinking) appActions.updateRole(target.dataset.roleThinking, { thinking: target.value });
+  if (target.dataset.managedModelId) providerActions.toggleManagedModelSelection(target.dataset.managedModelId, target.checked);
+});
+
+let managedModelDrag = null;
+function updateManagedModelDrag(event) {
+  const drag = managedModelDrag;
+  if (!drag?.active) return;
+  const left = Math.min(drag.startX, event.clientX);
+  const top = Math.min(drag.startY, event.clientY);
+  const right = Math.max(drag.startX, event.clientX) + 1;
+  const bottom = Math.max(drag.startY, event.clientY) + 1;
+  Object.assign(drag.box.style, { left: `${left}px`, top: `${top}px`, width: `${right - left}px`, height: `${bottom - top}px` });
+  drag.modelIDs = [];
+  drag.list.querySelectorAll("[data-model-row]").forEach((row) => {
+    const bounds = row.getBoundingClientRect();
+    const selected = bounds.left < right && bounds.right > left && bounds.top < bottom && bounds.bottom > top;
+    row.classList.toggle("is-selected", selected);
+    if (selected) drag.modelIDs.push(row.dataset.modelRow);
+  });
+}
+function suppressManagedModelClick() {
+  const cancel = (event) => {
+    if (event.target.closest(".model-manage__list")) {
+      event.preventDefault();
+      event.stopImmediatePropagation();
+    }
+    document.removeEventListener("click", cancel, true);
+  };
+  document.addEventListener("click", cancel, true);
+  window.setTimeout(() => document.removeEventListener("click", cancel, true), 0);
+}
+function startManagedModelDrag(event) {
+  const drag = managedModelDrag;
+  if (!drag || drag.active) return;
+  const box = document.createElement("div");
+  box.className = "model-manage__selection-box";
+  document.body.append(box);
+  drag.box = box;
+  drag.active = true;
+  drag.list.setPointerCapture(event.pointerId);
+  suppressManagedModelClick();
+  updateManagedModelDrag(event);
+}
+function finishManagedModelDrag(commit) {
+  const drag = managedModelDrag;
+  if (!drag) return;
+  managedModelDrag = null;
+  if (!drag.active) return;
+  drag.box.remove();
+  if (drag.list.hasPointerCapture(drag.pointerID)) drag.list.releasePointerCapture(drag.pointerID);
+  if (commit) providerActions.setManagedModelSelection(drag.modelIDs);
+}
+root.addEventListener("pointerdown", (event) => {
+  if (event.button !== 0 || event.target.closest("input, label")) return;
+  const list = event.target.closest(".model-manage__list");
+  if (!list) return;
+  managedModelDrag = { pointerID: event.pointerId, list, startX: event.clientX, startY: event.clientY, modelIDs: [], active: false };
+  if (!event.target.closest("[data-edit-model]")) {
+    startManagedModelDrag(event);
+    event.preventDefault();
+  }
+});
+root.addEventListener("pointermove", (event) => {
+  const drag = managedModelDrag;
+  if (!drag || drag.pointerID !== event.pointerId) return;
+  if (!drag.active && Math.hypot(event.clientX - drag.startX, event.clientY - drag.startY) < 4) return;
+  startManagedModelDrag(event);
+  updateManagedModelDrag(event);
+  event.preventDefault();
+});
+root.addEventListener("pointerup", (event) => {
+  if (managedModelDrag?.pointerID === event.pointerId) finishManagedModelDrag(true);
+});
+root.addEventListener("pointercancel", (event) => {
+  if (managedModelDrag?.pointerID === event.pointerId) finishManagedModelDrag(false);
 });
 
 let renderedState = null;

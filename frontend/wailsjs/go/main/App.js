@@ -26,8 +26,8 @@ export function DeleteGlobalSkill(arg1) {
   return window['go']['main']['App']['DeleteGlobalSkill'](arg1);
 }
 
-export function DeleteModel(arg1, arg2) {
-  return window['go']['main']['App']['DeleteModel'](arg1, arg2);
+export function DeleteModels(arg1, arg2) {
+  return window['go']['main']['App']['DeleteModels'](arg1, arg2);
 }
 
 export function DeleteProvider(arg1) {
@@ -50,8 +50,8 @@ export function GetAppState() {
   return window['go']['main']['App']['GetAppState']();
 }
 
-export function GetModelDeleteImpact(arg1, arg2) {
-  return window['go']['main']['App']['GetModelDeleteImpact'](arg1, arg2);
+export function GetModelsDeleteImpact(arg1, arg2) {
+  return window['go']['main']['App']['GetModelsDeleteImpact'](arg1, arg2);
 }
 
 export function GetProviderDeleteImpact(arg1) {

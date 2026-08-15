@@ -20,8 +20,7 @@ body,
 
 .dashboard-nav__item,
 .provider-switcher button,
-.model-picker__menu button,
-.model-manage__remove {
+.model-picker__menu button {
   border: 1px solid var(--color-divider);
   background: var(--control-bg);
   box-shadow: none;
@@ -31,8 +30,7 @@ body,
 .provider-summary:active,
 .provider-switcher button:active,
 .model-picker__menu button:active,
-.provider-manage-row__select:active,
-.model-manage__remove:active { transform: scale(.975); transition-duration: 90ms; }
+.provider-manage-row__select:active { transform: scale(.975); transition-duration: 90ms; }
 
 .window-shell {
   border-color: var(--color-divider);
@@ -205,11 +203,16 @@ body,
 .provider-switcher {
   position: absolute;
   right: 0;
-  bottom: 50px;
+  bottom: 64px;
   left: 0;
   z-index: 8;
+  height: 230px;
   padding: 6px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-gutter: stable;
   display: grid;
+  align-content: start;
   gap: 2px;
   border: 1px solid var(--color-divider);
   border-radius: var(--radius-md);

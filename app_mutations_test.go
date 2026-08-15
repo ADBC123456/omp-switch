@@ -84,6 +84,48 @@ func TestModelMutationRejectsConflictAndPropagatesExactSelector(t *testing.T) {
 		t.Fatalf("roles = %#v", state.ModelRoles)
 	}
 }
+func TestBatchModelDeletionRemovesOnlySelectedModelsAndRoles(t *testing.T) {
+	configured := mutationProvider("gateway", "secret", "one")
+	configured.Models = append(configured.Models, provider.ModelInfo{ID: "two"}, provider.ModelInfo{ID: "three"})
+	configured.SelectedModelID = "two"
+	app := mutationTestApp(t, config.SwitchConfig{
+		Providers: []provider.Config{configured}, SelectedProviderID: "gateway",
+		ModelRoles: map[string]string{"default": "gateway/one:low", "smol": "gateway/two", "task": "gateway/three", "custom": "external/model"},
+		Settings:   config.AppSettings{OMPCommand: "omp", WorkingDir: t.TempDir()},
+	})
+
+	impact, err := app.GetModelsDeleteImpact("gateway", []string{"one", "two", "one"})
+	if err != nil || strings.Join(impact, ",") != "default,smol" {
+		t.Fatalf("impact = %v, %v", impact, err)
+	}
+	if _, err = app.DeleteModels("gateway", []string{"one", "missing"}); err == nil {
+		t.Fatal("expected missing model rejection")
+	}
+	unchanged, err := app.service.Load()
+	if err != nil || len(unchanged.Providers[0].Models) != 3 {
+		t.Fatalf("failed deletion mutated configuration: %#v, %v", unchanged.Providers[0].Models, err)
+	}
+
+	state, err := app.DeleteModels("gateway", []string{"one", "two"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if models := state.Providers[0].Models; len(models) != 1 || models[0].ID != "three" {
+		t.Fatalf("models = %#v", models)
+	}
+	if state.Providers[0].SelectedModelID != "three" {
+		t.Fatalf("selected model = %q", state.Providers[0].SelectedModelID)
+	}
+	if _, exists := state.ModelRoles["default"]; exists {
+		t.Fatalf("default role was not cleared: %#v", state.ModelRoles)
+	}
+	if _, exists := state.ModelRoles["smol"]; exists {
+		t.Fatalf("smol role was not cleared: %#v", state.ModelRoles)
+	}
+	if state.ModelRoles["task"] != "gateway/three" || state.ModelRoles["custom"] != "external/model" {
+		t.Fatalf("unrelated roles changed: %#v", state.ModelRoles)
+	}
+}
 
 func mutationTestApp(t *testing.T, initial config.SwitchConfig) *App {
 	t.Helper()

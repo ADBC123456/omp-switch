@@ -1,4 +1,4 @@
-import { CancelModelDiscovery, CheckEnvVar, CheckForUpdate, ContinueSession, CreateProvider, DeleteGlobalSkill, DeleteModel, DeleteProvider, DeleteSession, ExecuteLaunchOMP, FetchModels, GetAppState, GetModelDeleteImpact, GetProviderDeleteImpact, ImportDiscoveredModels, InstallUpdate, ListGlobalSkills, ListSessions, MarkUpdateChecked, OpenConfigFolder, SaveModel, SetSelectedModel, SetSelectedProvider, TestModel, UpdateModelRoles, UpdateProvider, UpdateSettings } from "../../wailsjs/go/main/App";
+import { CancelModelDiscovery, CheckEnvVar, CheckForUpdate, ContinueSession, CreateProvider, DeleteGlobalSkill, DeleteModels, DeleteProvider, DeleteSession, ExecuteLaunchOMP, FetchModels, GetAppState, GetModelsDeleteImpact, GetProviderDeleteImpact, ImportDiscoveredModels, InstallUpdate, ListGlobalSkills, ListSessions, MarkUpdateChecked, OpenConfigFolder, SaveModel, SetSelectedModel, SetSelectedProvider, TestModel, UpdateModelRoles, UpdateProvider, UpdateSettings } from "../../wailsjs/go/main/App";
 import { BrowserOpenURL, Quit, WindowMinimise, WindowToggleMaximise, EventsOn } from "../../wailsjs/runtime/runtime";
 
 export class WailsApi {
@@ -13,8 +13,8 @@ export class WailsApi {
   cancelModelDiscovery(requestId) { return CancelModelDiscovery(requestId); }
   importDiscoveredModels(id, models) { return ImportDiscoveredModels(id, models); }
   saveModel(providerId, originalId, model) { return SaveModel(providerId, originalId, model); }
-  deleteModel(providerId, modelId) { return DeleteModel(providerId, modelId); }
-  getModelDeleteImpact(providerId, modelId) { return GetModelDeleteImpact(providerId, modelId); }
+  deleteModels(providerId, modelIds) { return DeleteModels(providerId, modelIds); }
+  getModelsDeleteImpact(providerId, modelIds) { return GetModelsDeleteImpact(providerId, modelIds); }
   setSelectedProvider(id) { return SetSelectedProvider(id); }
   setSelectedModel(providerId, modelId) { return SetSelectedModel(providerId, modelId); }
   updateModelRoles(updates) { return UpdateModelRoles(updates); }

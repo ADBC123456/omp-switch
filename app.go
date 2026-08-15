@@ -24,6 +24,7 @@ import (
 )
 
 var appVersion = "1.0.0"
+
 const configChangedEvent = "omp:config-changed"
 const updateAvailableEvent = "omp:update-available"
 
@@ -308,49 +309,86 @@ func (a *App) SaveModel(providerID, originalID string, input provider.ModelInfo)
 	}
 	return a.state(cfg), nil
 }
-func (a *App) GetModelDeleteImpact(providerID, modelID string) ([]string, error) {
-	cfg, e := a.service.Load()
-	if e != nil {
-		return nil, e
+func selectedModelIDs(p provider.Config, modelIDs []string) ([]string, map[string]struct{}, error) {
+	ids := make([]string, 0, len(modelIDs))
+	selected := make(map[string]struct{}, len(modelIDs))
+	for _, modelID := range modelIDs {
+		modelID = strings.TrimSpace(modelID)
+		if modelID == "" {
+			return nil, nil, errors.New("模型 ID 不能为空")
+		}
+		if _, exists := selected[modelID]; exists {
+			continue
+		}
+		if err := provider.EnsureModel(p, modelID); err != nil {
+			return nil, nil, err
+		}
+		ids = append(ids, modelID)
+		selected[modelID] = struct{}{}
 	}
-	p, e := cfg.ProviderByID(providerID)
-	if e != nil {
-		return nil, e
+	if len(ids) == 0 {
+		return nil, nil, errors.New("至少选择一个模型")
 	}
-	if e = provider.EnsureModel(p, modelID); e != nil {
-		return nil, e
-	}
-	return omp.ManagedRoleImpact(cfg.ModelRoles, cfg.Providers, providerID, modelID), nil
+	return ids, selected, nil
 }
-func (a *App) DeleteModel(providerID, modelID string) (config.AppState, error) {
+
+func (a *App) GetModelsDeleteImpact(providerID string, modelIDs []string) ([]string, error) {
+	cfg, err := a.service.Load()
+	if err != nil {
+		return nil, err
+	}
+	p, err := cfg.ProviderByID(providerID)
+	if err != nil {
+		return nil, err
+	}
+	_, selected, err := selectedModelIDs(p, modelIDs)
+	if err != nil {
+		return nil, err
+	}
+	roles := make([]string, 0)
+	for _, role := range omp.ManagedRoles {
+		matchedProvider, matchedModel, _, matched := omp.ParseManagedSelector(cfg.ModelRoles[role], cfg.Providers)
+		if matched && matchedProvider == providerID {
+			if _, exists := selected[matchedModel]; exists {
+				roles = append(roles, role)
+			}
+		}
+	}
+	return roles, nil
+}
+
+func (a *App) DeleteModels(providerID string, modelIDs []string) (config.AppState, error) {
 	a.mutationMu.Lock()
 	defer a.mutationMu.Unlock()
-	cfg, e := a.loadClone()
-	if e != nil {
-		return config.AppState{}, e
+	cfg, err := a.loadClone()
+	if err != nil {
+		return config.AppState{}, err
 	}
-	p, e := cfg.ProviderByID(providerID)
-	if e != nil {
-		return config.AppState{}, e
+	p, err := cfg.ProviderByID(providerID)
+	if err != nil {
+		return config.AppState{}, err
 	}
-	if e = provider.EnsureModel(p, modelID); e != nil {
-		return config.AppState{}, e
+	ids, selected, err := selectedModelIDs(p, modelIDs)
+	if err != nil {
+		return config.AppState{}, err
 	}
-	omp.RewriteManagedSelectors(cfg.ModelRoles, cfg.Providers, providerID, modelID, "", "")
-	models := make([]provider.ModelInfo, 0, len(p.Models)-1)
-	for _, m := range p.Models {
-		if m.ID != modelID {
-			models = append(models, m)
+	for _, modelID := range ids {
+		omp.RewriteManagedSelectors(cfg.ModelRoles, cfg.Providers, providerID, modelID, "", "")
+	}
+	models := make([]provider.ModelInfo, 0, len(p.Models)-len(selected))
+	for _, model := range p.Models {
+		if _, remove := selected[model.ID]; !remove {
+			models = append(models, model)
 		}
 	}
 	p.Models = models
-	if p.SelectedModelID == modelID {
+	if _, removed := selected[p.SelectedModelID]; removed {
 		p.SelectedModelID = ""
 	}
 	p = provider.Normalize(p)
 	cfg.UpsertProvider(p, providerID)
-	if e = a.saveOMP(cfg); e != nil {
-		return config.AppState{}, e
+	if err = a.saveOMP(cfg); err != nil {
+		return config.AppState{}, err
 	}
 	return a.state(cfg), nil
 }

@@ -39,8 +39,11 @@ function settingsModal(state) {
 
 function confirmation(kind, payload) {
   const roles = payload.roles?.length ? ` 将清除角色：${payload.roles.join("、")}。` : "";
-  const provider = kind === "confirm-delete-provider";
-  return modalFrame({ tone: "error", title: provider ? "删除 Provider" : "删除模型", description: `${provider ? `确定删除 ${payload.name}` : `确定删除 ${payload.modelId}`}？${roles}`, actions: `<button class="text-button" data-close-modal>取消</button><button class="text-button text-button--danger" ${provider ? "data-confirm-delete-provider" : "data-confirm-delete-model"}>确认删除</button>` });
+  if (kind === "confirm-delete-provider") {
+    return modalFrame({ tone: "error", title: "删除 Provider", description: `确定删除 ${payload.name}？${roles}`, actions: '<button class="text-button" data-close-modal>取消</button><button class="text-button text-button--danger" data-confirm-delete-provider>确认删除</button>' });
+  }
+  const count = payload.modelIDs?.length ?? 0;
+  return modalFrame({ tone: "error", title: "删除模型", description: `确定删除 ${count} 个模型？${roles}`, actions: '<button class="text-button" data-close-modal>取消</button><button class="text-button text-button--danger" data-confirm-delete-models>确认删除</button>' });
 }
 function modelDetailsModal(payload) {
   const model = payload.model ?? {};
@@ -102,7 +105,7 @@ export function renderModal(state) {
   if (modal.kind === "confirm-delete-skill") return deleteSkillConfirmation(modal.payload);
   if (modal.kind === "model-roles") return modalFrame({ wide: true, title: "模型角色", description: "仅更新本面板中明确修改的角色。", body: renderModelRoles(state, modal.payload), actions: '<button class="text-button" data-close-modal>取消</button><button class="text-button text-button--accent" data-save-roles>保存角色</button>' });
   if (modal.kind === "add-provider") return modalFrame({ wide: true, variant: "pills preset-picker", title: "选择配置模板", body: `<div class="preset-list">${state.presets.map((preset) => `<button class="preset-row" data-preset-id="${escapeHtml(preset.id)}"><span><strong>${escapeHtml(preset.label)}</strong><small>${escapeHtml(preset.baseUrl)}</small></span><span aria-hidden="true">→</span></button>`).join("")}</div>`, actions: '<button class="text-button" data-close-modal>取消</button>' });
-  if (modal.kind === "confirm-delete-provider" || modal.kind === "confirm-delete-model") return confirmation(modal.kind, modal.payload);
+  if (modal.kind === "confirm-delete-provider" || modal.kind === "confirm-delete-models") return confirmation(modal.kind, modal.payload);
   if (modal.kind === "update-available") return modalFrame({ tone: "success", title: "发现新版本", description: `新版本 v${modal.payload.latestVersion} 已可用。`, actions: '<button class="text-button" data-skip-update>跳过</button><button class="text-button text-button--accent" data-install-update>立即更新</button>' });
   return "";
 }

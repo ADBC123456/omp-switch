@@ -166,11 +166,11 @@ export namespace provider {
 	    ok: boolean;
 	    title: string;
 	    lines: string[];
-
+	
 	    static createFrom(source: any = {}) {
 	        return new ConnectionTestResult(source);
 	    }
-
+	
 	    constructor(source: any = {}) {
 	        if ('string' === typeof source) source = JSON.parse(source);
 	        this.ok = source["ok"];
@@ -338,17 +338,17 @@ export namespace sessions {
 }
 
 export namespace skills {
-
+	
 	export class Info {
 	    name: string;
 	    description: string;
 	    path: string;
 	    locked: boolean;
-
+	
 	    static createFrom(source: any = {}) {
 	        return new Info(source);
 	    }
-
+	
 	    constructor(source: any = {}) {
 	        if ('string' === typeof source) source = JSON.parse(source);
 	        this.name = source["name"];
@@ -360,17 +360,17 @@ export namespace skills {
 	export class Inventory {
 	    root: string;
 	    skills: Info[];
-
+	
 	    static createFrom(source: any = {}) {
 	        return new Inventory(source);
 	    }
-
+	
 	    constructor(source: any = {}) {
 	        if ('string' === typeof source) source = JSON.parse(source);
 	        this.root = source["root"];
 	        this.skills = this.convertValues(source["skills"], Info);
 	    }
-
+	
 		convertValues(a: any, classs: any, asMap: boolean = false): any {
 		    if (!a) {
 		        return a;
