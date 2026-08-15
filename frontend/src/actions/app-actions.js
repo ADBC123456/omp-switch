@@ -111,6 +111,11 @@ export function createAppActions({ root, api, store, feedback, applyTheme }) {
     catch (error) { feedback.showError("检查更新失败", error); }
   }
   async function skipUpdate() { try { await api.markUpdateChecked(); } catch (error) { feedback.showError("记录跳过失败", error); } store.setState((state) => ({ ...state, modal: null })); }
-  async function installUpdate() { try { await api.installUpdate(); api.closeWindow(); } catch (error) { feedback.showError("更新失败", error); } }
+  async function installUpdate() {
+    const payload = store.getState().modal?.payload;
+    if (!payload?.releaseUrl) { feedback.showError("更新失败", new Error("缺少 Release 下载地址")); return; }
+    api.openExternalURL(payload.releaseUrl);
+    store.setState((state) => ({ ...state, modal: null }));
+  }
   return { selectProvider, selectModel, directLaunch, testModel, openGlobalSkills, requestDeleteGlobalSkill, confirmDeleteGlobalSkill, openSessions, continueSession, requestDeleteSession, confirmDeleteSession, saveSettings, openRoles, updateRole, saveRoles, checkUpdate, skipUpdate, installUpdate };
 }
