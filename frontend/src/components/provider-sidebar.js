@@ -24,8 +24,10 @@ export function renderProviderSidebar(state, provider) {
         <span class="provider-avatar">${escapeHtml((providerName[0] || "P").toUpperCase())}</span>
         <span><strong>${escapeHtml(providerName)}</strong><small>${escapeHtml(host)}</small></span>${icon("chevron")}
       </button>
-      <button class="secondary-glass glow-button" data-toggle-provider-switcher aria-haspopup="menu" aria-expanded="${state.providerMenuOpen}" ${state.providers.length > 1 ? "" : "disabled"}><span>切换 Provider</span>${icon("restart")}</button>
-      ${state.providerMenuOpen ? `<div class="provider-switcher" role="menu" aria-label="切换 Provider">${state.providers.map((item) => `<button data-provider-id="${escapeHtml(item.id)}" role="menuitem" class="${item.id === state.selectedProviderId ? "is-selected" : ""}"><span>${escapeHtml(item.name)}</span><small>${escapeHtml(extractHost(item.baseUrl))}</small></button>`).join("")}</div>` : ""}
+      <div class="provider-switcher-wrap" data-open="${state.providerMenuOpen ? "true" : "false"}">
+        <button class="secondary-glass glow-button provider-switcher__trigger" data-toggle-provider-switcher aria-haspopup="menu" aria-expanded="${state.providerMenuOpen}" ${state.providers.length > 1 ? "" : "disabled"}><span>切换 Provider</span>${icon("down")}</button>
+        ${state.providers.length > 1 ? `<div class="provider-switcher" role="menu" aria-label="切换 Provider"><div class="provider-switcher__panel"><div class="provider-switcher__menu">${state.providers.map((item) => `<button data-provider-id="${escapeHtml(item.id)}" role="menuitem" class="${item.id === state.selectedProviderId ? "is-selected" : ""}"><span>${escapeHtml(item.name)}</span><small>${escapeHtml(extractHost(item.baseUrl))}</small></button>`).join("")}</div></div></div>` : ""}
+      </div>
     </section>
     <footer class="sidebar-meta"><span><i></i>OMP 配置就绪</span><span>v${escapeHtml(state.version)}</span></footer>
   </aside>`;

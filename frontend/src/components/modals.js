@@ -1,5 +1,6 @@
 import { escapeHtml } from "./view-utils.js";
 import { renderModelRoles } from "./model-roles.js";
+import { renderCheckbox } from "./checkbox.js";
 
 function modalFrame({ tone = "", title, description = "", body = "", actions = "", wide = false, variant = "" }) {
   return `<div class="modal-backdrop"><section class="modal-dialog ${wide ? "modal-dialog--wide" : ""} ${tone ? `modal-dialog--${tone}` : ""} ${variant ? `modal-dialog--${variant}` : ""}" role="dialog" aria-modal="true"><header class="modal-header"><h3>${escapeHtml(title)}</h3>${description ? `<p>${escapeHtml(description)}</p>` : ""}</header>${body ? `<div class="modal-body">${body}</div>` : ""}<footer class="modal-footer">${actions}</footer></section></div>`;
@@ -26,7 +27,11 @@ function discoveryReview(payload) {
   const selected = new Set(payload.selected ?? []);
   const visible = (payload.added ?? []).filter((model) => !query || `${model.id} ${model.name ?? ""}`.toLowerCase().includes(query.toLowerCase()));
   const selectedVisible = visible.filter((model) => selected.has(model.id)).length;
-  const section = (title, models, open, selectable = false) => `<details class="discovery-group" ${open ? "open" : ""}><summary>${title}<span>${models.length}</span></summary><div class="discovery-list">${models.length ? models.map((model) => `<label class="discovery-row">${selectable ? `<input type="checkbox" data-review-model="${escapeHtml(model.id)}" ${selected.has(model.id) ? "checked" : ""}>` : ""}<span><strong>${escapeHtml(model.name || model.id)}</strong><small>${escapeHtml(model.id)}</small></span></label>`).join("") : '<p class="quiet-empty">无</p>'}</div></details>`;
+  const section = (title, models, open, selectable = false) => {
+    const row = (model) => `<span><strong>${escapeHtml(model.name || model.id)}</strong><small>${escapeHtml(model.id)}</small></span>`;
+    const items = models.length ? models.map((model) => selectable ? renderCheckbox({ checked: selected.has(model.id), dataset: { reviewModel: model.id }, className: "discovery-row checkbox", content: row(model) }) : `<span class="discovery-row">${row(model)}</span>`).join("") : '<p class="quiet-empty">无</p>';
+    return `<details class="discovery-group" ${open ? "open" : ""}><summary>${title}<span>${models.length}</span></summary><div class="discovery-list">${items}</div></details>`;
+  };
   return modalFrame({ wide: true, variant: "pills discovery-review", title: "识别结果", description: `新增 ${payload.added.length} · 已存在 ${payload.existing.length} · 未识别 ${payload.missing.length}`, body: `<form class="discovery-toolbar" data-discovery-search-form><label class="discovery-search"><span class="discovery-search__label">搜索模型</span><span class="discovery-search__control"><input type="search" data-discovery-search value="${escapeHtml(query)}" placeholder="输入 ID 或名称，按 Enter 搜索"><button class="discovery-search__button" type="submit">搜索</button></span></label><button class="text-button" type="button" data-toggle-filtered-review>${selectedVisible === visible.length && visible.length ? "取消选择筛选项" : "选择筛选项"}</button><span class="discovery-count" aria-live="polite">${selectedVisible}/${visible.length} 已选</span></form>${payload.warnings.length ? `<div class="discovery-warnings">${payload.warnings.map((warning) => `<p>${escapeHtml(warning)}</p>`).join("")}</div>` : ""}${section("新增", visible, true, true)}${section("已存在", payload.existing, false)}${section("本次未识别", payload.missing, false)}`, actions: '<button class="text-button" data-close-modal>取消</button><button class="text-button text-button--accent" data-import-models>导入所选模型</button>' });
 }
 

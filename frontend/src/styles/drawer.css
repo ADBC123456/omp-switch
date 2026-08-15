@@ -147,14 +147,13 @@
 .model-manage__row.is-selected { border-color: var(--color-divider-strong); background: var(--accent-soft); }
 
 .model-manage__select {
+  --checkbox-size: 18px;
   width: 18px;
   height: 18px;
   display: grid;
   place-items: center;
   flex: 0 0 auto;
-  cursor: pointer;
 }
-.model-manage__select input { width: 15px; min-height: 15px; margin: 0; accent-color: var(--accent); cursor: pointer; }
 
 .model-manage__selection-box {
   position: fixed;
@@ -174,25 +173,45 @@
 .model-manage__actions { display: flex; align-items: center; justify-content: flex-end; flex-wrap: wrap; gap: 8px; }
 .model-manage__actions .text-button { min-height: var(--control-sm); padding: 0 10px; }
 
-.model-manage__edit {
+.model-manage__info {
   min-width: 0;
   flex: 1;
-  padding: 4px 0;
-  color: var(--ink);
-  text-align: left;
-  cursor: pointer;
 }
 
-.model-manage__edit strong,
-.model-manage__edit small {
+.model-manage__info strong,
+.model-manage__info small {
   display: block;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-.model-manage__edit strong { font-size: 12px; }
-.model-manage__edit small { margin-top: 4px; color: var(--ink-secondary); font-size: 11px; font-weight: 450; }
+.model-manage__info strong { font-size: 12px; }
+.model-manage__info small { margin-top: 4px; color: var(--ink-secondary); font-size: 11px; font-weight: 450; }
+
+.model-manage__edit {
+  position: relative;
+  flex: 0 0 auto;
+  width: calc(1em + 46px);
+  min-height: var(--control-sm);
+  padding: 0;
+  overflow: hidden;
+  border: 1px solid var(--color-divider);
+  border-radius: var(--radius-pill);
+  background: var(--control-bg);
+  color: var(--ink-secondary);
+  font-size: 12px;
+  font-weight: 560;
+  cursor: pointer;
+  transition: transform 120ms ease-out, color 180ms ease, border-color 180ms ease, background-color 180ms ease;
+}
+
+.model-manage__edit:hover {
+  border-color: var(--color-divider-strong);
+  background: var(--color-hover-bg);
+  color: var(--ink);
+}
+.model-manage__edit:active { transform: scale(.965); }
 
 
 .model-manage__row.is-conflict {

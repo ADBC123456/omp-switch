@@ -39,9 +39,9 @@ export function renderMainPanel(state, provider) {
       <header class="dashboard-heading"><div><h1>欢迎使用 OMP Switch</h1><p>轻松切换与管理大模型服务</p></div>${renderThemeSwitcher(state.settings?.theme || "system")}</header>
       <section class="dashboard-card model-card" aria-labelledby="model-card-title">
         <div class="section-heading"><h2 id="model-card-title">模型选择</h2><p>选择要使用的运行模型</p></div>
-        <div class="model-picker ${state.modelMenuOpen ? "is-open" : ""}">
+        <div class="model-picker" data-open="${state.modelMenuOpen ? "true" : "false"}">
           <button class="model-picker__trigger glow-button" data-toggle-model-menu aria-haspopup="listbox" aria-expanded="${state.modelMenuOpen}" ${models.length ? "" : "disabled"}><span class="model-picker__copy"><strong>${escapeHtml(modelName)}</strong>${selected ? "<small>默认</small>" : ""}</span>${icon("down")}</button>
-          ${models.length && state.modelMenuOpen ? `<div class="model-picker__menu" role="listbox">${models.map((model) => `<button data-select-model="${escapeHtml(model.id)}" role="option" aria-selected="${model.id === selected?.id}" class="${model.id === selected?.id ? "is-selected" : ""}"><span>${escapeHtml(model.name || model.id)}</span><small>${escapeHtml(model.id)}</small></button>`).join("")}</div>` : ""}
+          ${models.length ? `<div class="model-picker__panel" role="listbox"><div class="model-picker__menu"><div class="model-picker__menu-scroll">${models.map((model) => `<button data-select-model="${escapeHtml(model.id)}" role="option" aria-selected="${model.id === selected?.id}" class="${model.id === selected?.id ? "is-selected" : ""}"><span>${escapeHtml(model.name || model.id)}</span><small>${escapeHtml(model.id)}</small></button>`).join("")}</div></div></div>` : ""}
         </div>
         <div class="model-card__actions"><button class="detail-button glow-button" data-open-model-details ${selected ? "" : "disabled"}>${icon("info")}<span>模型详情</span></button><button class="launch-button glow-button ${state.launchPending ? "is-loading" : ""}" data-launch-omp ${canLaunch ? "" : "disabled"}><span class="launch-button__liquid"></span><span class="launch-button__content">${state.launchPending ? '<i class="button-spinner"></i><strong>正在启动</strong>' : `${icon("play")}<strong>启动 OMP</strong>${icon("arrow")}`}</span></button></div>
       </section>

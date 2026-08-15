@@ -1,4 +1,5 @@
 import { escapeHtml } from "./view-utils.js";
+import { renderCheckbox } from "./checkbox.js";
 
 const API_OPTIONS = [
   ["openai-completions", "OpenAI Chat Completions"],
@@ -17,7 +18,7 @@ export function modelManageList(state, provider) {
   const allSelected = models.length > 0 && selected.size === models.length;
   return `<section class="form-section model-manage">
     <div class="model-manage__heading"><span class="form-field__label">模型管理${models.length ? ` · ${models.length}` : ""}</span><div class="model-manage__actions">${models.length ? `<button class="text-button" type="button" data-toggle-all-managed-models>${allSelected ? "取消全选" : "全选"}</button><button class="text-button text-button--danger" type="button" data-request-delete-models ${selected.size ? "" : "disabled"}>删除${selected.size ? ` (${selected.size})` : ""}</button>` : ""}<button class="text-button text-button--accent" type="button" data-add-model>添加模型</button></div></div>
-    ${models.length ? `<div class="model-manage__list" aria-label="模型列表，可拖拽框选">${models.map((model) => `<div class="model-manage__row ${selected.has(model.id) ? "is-selected" : ""}" data-model-row="${escapeHtml(model.id)}"><label class="model-manage__select" aria-label="选择 ${escapeHtml(model.name || model.id)}"><input type="checkbox" data-managed-model-id="${escapeHtml(model.id)}" ${selected.has(model.id) ? "checked" : ""}></label><button class="model-manage__edit" type="button" data-edit-model="${escapeHtml(model.id)}"><strong>${escapeHtml(model.name || model.id)}</strong><small>${escapeHtml(model.id)}${model.contextWindow ? ` · ${Math.round(model.contextWindow / 1000)}K` : ""}</small></button></div>`).join("")}</div>` : `<p class="model-manage__empty">尚未配置模型。可手工添加，或保存 Provider 后获取上游模型。</p>`}
+    ${models.length ? `<div class="model-manage__list" aria-label="模型列表，可拖拽框选">${models.map((model) => `<div class="model-manage__row ${selected.has(model.id) ? "is-selected" : ""}" data-model-row="${escapeHtml(model.id)}">${renderCheckbox({ checked: selected.has(model.id), dataset: { managedModelId: model.id }, label: `选择 ${model.name || model.id}`, className: "model-manage__select" })}<span class="model-manage__info"><strong>${escapeHtml(model.name || model.id)}</strong><small>${escapeHtml(model.id)}${model.contextWindow ? ` · ${Math.round(model.contextWindow / 1000)}K` : ""}</small></span><button class="model-manage__edit" type="button" data-edit-model="${escapeHtml(model.id)}" aria-label="编辑 ${escapeHtml(model.name || model.id)}">编辑</button></div>`).join("")}</div>` : `<p class="model-manage__empty">尚未配置模型。可手工添加，或保存 Provider 后获取上游模型。</p>`}
   </section>`;
 }
 

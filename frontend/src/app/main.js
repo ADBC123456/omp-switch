@@ -13,7 +13,7 @@ import { bindGlowButtons } from "../ui/glow-effect.js";
 
 const root = document.querySelector("#app");
 const api = new WailsApi();
-const store = createStore({ version: "1.0.0", providers: [], selectedProviderId: "", modelRoles: {}, settings: { ompCommand: "omp", workingDir: "", theme: "system" }, paths: {}, logs: [], presets: PRESETS, modal: null, drawer: null, modelMenuOpen: false, providerMenuOpen: false, launchPending: false, testPending: false });
+const store = createStore({ version: "1.1.0", providers: [], selectedProviderId: "", modelRoles: {}, settings: { ompCommand: "omp", workingDir: "", theme: "system" }, paths: {}, logs: [], presets: PRESETS, modal: null, drawer: null, modelMenuOpen: false, providerMenuOpen: false, launchPending: false, testPending: false });
 const feedback = createOperationFeedback(store);
 const themeManager = new ThemeManager({ api, store });
 const providerForm = createProviderFormController({ root, api, store, feedback });
@@ -30,11 +30,11 @@ async function reloadConfig() {
 }
 const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)");
 let overlayExit = null;
-function animateOverlayIn(selector, keyframes) {
+function animateOverlayIn(selector, keyframes, options = {}) {
   const element = root.querySelector(selector);
   if (!element || reduceMotion.matches) return;
   element.getAnimations().forEach((animation) => animation.cancel());
-  element.animate(keyframes, { duration: 320, easing: "cubic-bezier(.16, 1, .3, 1)", fill: "both" });
+  element.animate(keyframes, { duration: 320, easing: "cubic-bezier(.16, 1, .3, 1)", fill: "both", ...options });
 }
 async function closeOverlay(kind) {
   const selector = kind === "modal" ? ".modal-backdrop" : ".drawer";
@@ -45,10 +45,16 @@ async function closeOverlay(kind) {
   }
   overlayExit?.cancel();
   const style = getComputedStyle(element);
-  overlayExit = element.animate([
+  const isModal = kind === "modal";
+  overlayExit = element.animate(isModal ? [
     { opacity: style.opacity, transform: style.transform },
-    { opacity: 0, transform: kind === "modal" ? "translateY(10px) scale(.985)" : "translateX(28px) scale(.992)" }
-  ], { duration: 220, easing: "cubic-bezier(.4, 0, 1, 1)", fill: "forwards" });
+    { opacity: 0, transform: "translateY(10px) scale(.985)" }
+  ] : [
+    { transform: style.transform },
+    { transform: "translateX(calc(100% + 10px))" }
+  ], isModal
+    ? { duration: 220, easing: "cubic-bezier(.4, 0, 1, 1)", fill: "forwards" }
+    : { duration: 442, easing: "cubic-bezier(.34, 1.56, .64, 1)", fill: "forwards" });
   try { await overlayExit.finished; } catch { return; }
   store.setState((state) => ({ ...state, [kind]: null }));
 }
@@ -56,6 +62,20 @@ function closeModal() { if (store.getState().modal?.kind !== "operation-loading"
 function openModal(kind, payload = {}) { overlayExit?.cancel(); store.setState((state) => ({ ...state, modal: { kind, payload }, modelMenuOpen: false, providerMenuOpen: false })); }
 function toggleModelMenu() { store.setState((state) => ({ ...state, modelMenuOpen: !state.modelMenuOpen, providerMenuOpen: false })); }
 function toggleProviderMenu() { store.setState((state) => ({ ...state, providerMenuOpen: !state.providerMenuOpen, modelMenuOpen: false })); }
+function syncMenus(state) {
+  const modelPicker = root.querySelector(".model-picker");
+  if (modelPicker) {
+    modelPicker.setAttribute("data-open", state.modelMenuOpen ? "true" : "false");
+    const trigger = modelPicker.querySelector("[data-toggle-model-menu]");
+    if (trigger) trigger.setAttribute("aria-expanded", String(state.modelMenuOpen));
+  }
+  const providerWrap = root.querySelector(".provider-switcher-wrap");
+  if (providerWrap) {
+    providerWrap.setAttribute("data-open", state.providerMenuOpen ? "true" : "false");
+    const trigger = providerWrap.querySelector("[data-toggle-provider-switcher]");
+    if (trigger) trigger.setAttribute("aria-expanded", String(state.providerMenuOpen));
+  }
+}
 function currentProvider() { const state = store.getState(); return state.providers.find((item) => item.id === state.selectedProviderId) ?? state.providers[0]; }
 function currentModel() { const provider = currentProvider(); return provider?.models?.find((item) => item.id === provider.selectedModelId) ?? provider?.models?.[0]; }
 
@@ -104,6 +124,9 @@ const clickActions = {
 };
 
 root.addEventListener("click", async (event) => {
+  if (store.getState().modelMenuOpen && !event.target.closest(".model-picker")) {
+    store.setState((state) => ({ ...state, modelMenuOpen: false }));
+  }
   if (store.getState().providerMenuOpen && !event.target.closest(".provider-switcher, [data-toggle-provider-switcher]")) {
     store.setState((state) => ({ ...state, providerMenuOpen: false }));
   }
@@ -206,10 +229,6 @@ root.addEventListener("pointerdown", (event) => {
   const list = event.target.closest(".model-manage__list");
   if (!list) return;
   managedModelDrag = { pointerID: event.pointerId, list, startX: event.clientX, startY: event.clientY, modelIDs: [], active: false };
-  if (!event.target.closest("[data-edit-model]")) {
-    startManagedModelDrag(event);
-    event.preventDefault();
-  }
 });
 root.addEventListener("pointermove", (event) => {
   const drag = managedModelDrag;
@@ -257,14 +276,16 @@ function renderState(state) {
     const content = root.querySelector("[data-content-layer]"); const drawer = root.querySelector("[data-drawer-layer]"); const modal = root.querySelector("[data-modal-layer]");
     if (!content || !drawer || !modal) root.innerHTML = renderApp(state);
     else {
-      const contentChanged = renderedState.providers !== state.providers || renderedState.selectedProviderId !== state.selectedProviderId || renderedState.modelRoles !== state.modelRoles || renderedState.modelMenuOpen !== state.modelMenuOpen || renderedState.providerMenuOpen !== state.providerMenuOpen || renderedState.launchPending !== state.launchPending || renderedState.testPending !== state.testPending;
+      const contentChanged = renderedState.providers !== state.providers || renderedState.selectedProviderId !== state.selectedProviderId || renderedState.modelRoles !== state.modelRoles || renderedState.launchPending !== state.launchPending || renderedState.testPending !== state.testPending;
+      const menuChanged = renderedState.modelMenuOpen !== state.modelMenuOpen || renderedState.providerMenuOpen !== state.providerMenuOpen;
       if (contentChanged) {
         content.innerHTML = renderContentLayer(state);
         if (renderedState.selectedProviderId !== state.selectedProviderId || renderedState.providers !== state.providers) animateOverlayIn(".dashboard-main", [{ opacity: .82, transform: "translateX(7px)" }, { opacity: 1, transform: "translateX(0)" }]);
       }
+      if (menuChanged) syncMenus(state);
       if (renderedState.drawer !== state.drawer || renderedState.providers !== state.providers) {
         drawer.innerHTML = renderDrawerLayer(state);
-        if (!renderedState.drawer && state.drawer) animateOverlayIn(".drawer", [{ opacity: 0, transform: "translateX(28px) scale(.992)" }, { opacity: 1, transform: "translateX(0) scale(1)" }]);
+        if (!renderedState.drawer && state.drawer) animateOverlayIn(".drawer", [{ transform: "translateX(calc(100% + 10px))" }, { transform: "translateX(0)" }], { duration: 442, easing: "cubic-bezier(.34, 1.56, .64, 1)" });
       }
       if (renderedState.modal !== state.modal || (state.modal?.kind === "settings" && renderedState.settings !== state.settings)) {
         const modalView = renderedState.modal?.kind === state.modal?.kind ? captureModalView() : null;

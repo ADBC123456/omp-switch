@@ -135,3 +135,71 @@ select:focus {
   transform: scaleX(1);
   transform-origin: left center;
 }
+
+.checkbox {
+  --checkbox-color: var(--ink);
+  --checkbox-size: 1.5rem;
+  display: block;
+  position: relative;
+  cursor: pointer;
+  user-select: none;
+  font-size: var(--checkbox-size);
+  font-weight: 600;
+  color: var(--checkbox-color);
+}
+
+.checkbox input {
+  position: absolute;
+  pointer-events: none;
+  inset: 0;
+  opacity: 0;
+}
+
+.checkbox .checkmark {
+  display: flex;
+  align-items: center;
+  gap: calc(var(--checkbox-size) / 2.5);
+  opacity: 0.7;
+  transition: opacity 150ms ease;
+}
+
+.checkbox .checkmark:hover {
+  opacity: 0.85;
+}
+
+.checkbox input:checked ~ .checkmark {
+  opacity: 1;
+}
+
+.checkbox .checkmark svg {
+  width: var(--checkbox-size);
+  height: var(--checkbox-size);
+}
+
+.checkbox .checkmark svg rect {
+  stroke-dasharray: 88 0;
+  stroke-dashoffset: 73;
+  transition: stroke-dasharray 100ms ease;
+}
+
+.checkbox input:checked ~ .checkmark svg rect {
+  stroke-dasharray: 80 18;
+}
+
+.checkbox .checkmark svg polyline {
+  stroke-dasharray: 0 30;
+  stroke-dashoffset: 1;
+  transition: stroke-dasharray 150ms ease;
+}
+
+.checkbox input:checked ~ .checkmark svg polyline {
+  stroke-dasharray: 30 30;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .checkbox .checkmark,
+  .checkbox .checkmark svg rect,
+  .checkbox .checkmark svg polyline {
+    transition: none !important;
+  }
+}

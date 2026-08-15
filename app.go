@@ -23,7 +23,7 @@ import (
 	"ompswitch/internal/updater"
 )
 
-var appVersion = "1.0.0"
+var appVersion = "1.1.0"
 
 const configChangedEvent = "omp:config-changed"
 const updateAvailableEvent = "omp:update-available"

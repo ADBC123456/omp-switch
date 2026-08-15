@@ -633,9 +633,8 @@
 .discovery-group summary { min-height: var(--control-lg); padding: 0 20px; display: flex; align-items: center; justify-content: space-between; cursor: pointer; color: var(--ink); font-size: 12px; font-weight: 650; }
 .discovery-group summary span { min-width: 32px; padding: 5px 10px; border: 1px solid var(--color-divider); border-radius: var(--radius-pill); background: var(--surface-raised); font-variant-numeric: tabular-nums; text-align: center; }
 .discovery-list { max-height: 270px; padding: 0 10px 10px; overflow-y: auto; display: grid; gap: 8px; scrollbar-width: thin; scrollbar-color: var(--color-divider-strong) transparent; }
-.discovery-row { min-height: var(--control-lg); padding: 8px 16px; display: flex; align-items: center; gap: 12px; border: 1px solid var(--color-divider); border-radius: var(--radius-pill); background: var(--surface-raised); color: var(--ink); cursor: pointer; }
+.discovery-row { --checkbox-size: 18px; min-height: var(--control-lg); padding: 8px 16px; display: flex; align-items: center; gap: 12px; border: 1px solid var(--color-divider); border-radius: var(--radius-pill); background: var(--surface-raised); color: var(--ink); cursor: pointer; }
 .discovery-row:hover { border-color: var(--color-divider-strong); background: var(--color-hover-bg); }
-.discovery-row input { width: 18px; min-height: 18px; flex: none; accent-color: var(--ink); }
 .discovery-row strong, .discovery-row small { display: block; }
 .discovery-row strong { font-size: 12px; font-weight: 650; }
 .discovery-row small { margin-top: 3px; color: var(--ink-secondary); font-size: 11px; }
