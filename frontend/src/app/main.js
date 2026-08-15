@@ -13,7 +13,7 @@ import { bindGlowButtons } from "../ui/glow-effect.js";
 
 const root = document.querySelector("#app");
 const api = new WailsApi();
-const store = createStore({ version: "1.1.0", providers: [], selectedProviderId: "", modelRoles: {}, settings: { ompCommand: "omp", workingDir: "", theme: "system" }, paths: {}, logs: [], presets: PRESETS, modal: null, drawer: null, modelMenuOpen: false, providerMenuOpen: false, launchPending: false, testPending: false });
+const store = createStore({ version: "1.2.0", providers: [], selectedProviderId: "", modelRoles: {}, settings: { ompCommand: "omp", workingDir: "", theme: "system" }, paths: {}, logs: [], presets: PRESETS, modal: null, drawer: null, modelMenuOpen: false, providerMenuOpen: false, launchPending: false, testPending: false });
 const feedback = createOperationFeedback(store);
 const themeManager = new ThemeManager({ api, store });
 const providerForm = createProviderFormController({ root, api, store, feedback });
