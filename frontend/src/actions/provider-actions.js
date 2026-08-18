@@ -87,6 +87,40 @@ export function createProviderActions({ root, api, store, providerForm, feedback
     const model = provider.models?.find((item) => item.id === modelId) ?? { id: "", name: "", api: "", reasoning: null, contextWindow: 0, maxTokens: 0 };
     store.setState((state) => ({ ...state, modal: { kind: "model-editor", payload: { providerId: provider.id, originalId: modelId, model, error: "" } } }));
   }
+
+  function openDiscoveredModelEditor(modelId) {
+    const modal = store.getState().modal;
+    if (modal?.kind !== "discovery-review") return;
+    const provider = store.getState().providers.find((item) => item.id === modal.payload.providerId);
+    if (!provider) return;
+    const discovered = [...(modal.payload.added ?? []), ...(modal.payload.existing ?? [])].find((model) => model.id === modelId);
+    if (!discovered) return;
+    const exists = provider.models?.some((model) => model.id === modelId);
+    store.setState((state) => ({
+      ...state,
+      modal: {
+        kind: "model-editor",
+        payload: {
+          providerId: provider.id,
+          originalId: exists ? modelId : "",
+          model: discovered,
+          error: "",
+          returnTo: { kind: "discovery-review", payload: state.modal.payload }
+        }
+      }
+    }));
+  }
+
+  function discoveryReviewAfterSave(payload, savedModel, originalId = "") {
+    const removeIds = new Set([savedModel.id, originalId].filter(Boolean));
+    return {
+      ...payload,
+      added: (payload.added ?? []).filter((model) => !removeIds.has(model.id)),
+      existing: [...(payload.existing ?? []).filter((model) => !removeIds.has(model.id)), savedModel],
+      selected: (payload.selected ?? []).filter((id) => !removeIds.has(id))
+    };
+  }
+
   async function saveModel() {
     const modal = store.getState().modal;
     if (modal?.kind !== "model-editor") return;
@@ -99,7 +133,13 @@ export function createProviderActions({ root, api, store, providerForm, feedback
     }
     try {
       const backend = await api.saveModel(provider.id, modal.payload.originalId, model);
-      store.setState((state) => adoptBackendState(state, backend, { selectedProviderId: provider.id }));
+      const returnTo = modal.payload.returnTo;
+      if (returnTo?.kind === "discovery-review") {
+        const saved = backend.providers.find((item) => item.id === provider.id)?.models?.find((item) => item.id === model.id) ?? model;
+        store.setState((state) => adoptBackendState(state, backend, { selectedProviderId: provider.id, modal: { kind: "discovery-review", payload: discoveryReviewAfterSave(returnTo.payload, saved, modal.payload.originalId) } }));
+      } else {
+        store.setState((state) => adoptBackendState(state, backend, { selectedProviderId: provider.id }));
+      }
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
       if (message.includes("冲突")) {
@@ -176,5 +216,5 @@ export function createProviderActions({ root, api, store, providerForm, feedback
     } catch (error) { feedback.showError("删除 Provider 失败", error); }
   }
 
-  return { createFromPreset, fetchModels, cancelDiscovery, updateReviewQuery, toggleReviewModel, toggleFilteredReview, importModels, openModelEditor, saveModel, selectedManagedModelIDs, setManagedModelSelection, toggleManagedModelSelection, toggleAllManagedModels, requestDeleteModels, confirmDeleteModels, requestDeleteProvider, confirmDeleteProvider, reviewCounts: (payload) => discoveryCounts(payload.added, payload.query, new Set(payload.selected)), visibleReviewModels: (payload) => filterNewModels(payload.added, payload.query) };
+  return { createFromPreset, fetchModels, cancelDiscovery, updateReviewQuery, toggleReviewModel, toggleFilteredReview, importModels, openModelEditor, openDiscoveredModelEditor, saveModel, selectedManagedModelIDs, setManagedModelSelection, toggleManagedModelSelection, toggleAllManagedModels, requestDeleteModels, confirmDeleteModels, requestDeleteProvider, confirmDeleteProvider, reviewCounts: (payload) => discoveryCounts(payload.added, payload.query, new Set(payload.selected)), visibleReviewModels: (payload) => filterNewModels(payload.added, payload.query) };
 }

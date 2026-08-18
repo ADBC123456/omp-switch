@@ -15,11 +15,28 @@ import (
 const switchConfigVersion = 2
 
 type AppSettings struct {
-	OMPCommand            string `json:"ompCommand"`
-	Theme                 string `json:"theme"`
-	LegacyDarkMode        *bool  `json:"darkMode,omitempty"`
-	WorkingDir            string `json:"workingDir"`
-	LastUpdateCheckAtUnix int64  `json:"lastUpdateCheckAt,omitempty"`
+	OMPCommand            string      `json:"ompCommand"`
+	Theme                 string      `json:"theme"`
+	LegacyDarkMode        *bool       `json:"darkMode,omitempty"`
+	WorkingDir            string      `json:"workingDir"`
+	LastUpdateCheckAtUnix int64       `json:"lastUpdateCheckAt,omitempty"`
+	CustomPaths           CustomPaths `json:"customPaths,omitempty"`
+	LaunchMode            string      `json:"launchMode,omitempty"`
+	WSLDistro             string      `json:"wslDistro,omitempty"`
+}
+
+// CustomPaths holds user-configurable overrides for OMP file locations.
+// Empty fields fall back to DefaultPaths(). Only OMP-related paths are
+// overridable; config.json and backups stay on the Windows host.
+type CustomPaths struct {
+	OMPModelsPath  string `json:"ompModelsPath,omitempty"`
+	OMPConfigPath  string `json:"ompConfigPath,omitempty"`
+	OMPSessionsDir string `json:"ompSessionsDir,omitempty"`
+}
+
+// IsEmpty reports whether all custom path fields are unset.
+func (c CustomPaths) IsEmpty() bool {
+	return c.OMPModelsPath == "" && c.OMPConfigPath == "" && c.OMPSessionsDir == ""
 }
 
 type SwitchConfig struct {
@@ -137,11 +154,20 @@ func NormalizeSettings(input AppSettings) AppSettings {
 		input.Theme = "system"
 	}
 	input.LegacyDarkMode = nil
-	if input.WorkingDir == "" {
+	if input.LaunchMode != "native" && input.LaunchMode != "wsl" {
+		input.LaunchMode = "native"
+	}
+	input.WSLDistro = strings.TrimSpace(input.WSLDistro)
+	if input.WorkingDir == "" && input.LaunchMode != "wsl" {
+		// Native mode defaults to the Windows home directory; WSL mode keeps
+		// it empty so startup can demand an explicit Linux path.
 		if home, err := os.UserHomeDir(); err == nil {
 			input.WorkingDir = home
 		}
 	}
+	input.CustomPaths.OMPModelsPath = strings.TrimSpace(input.CustomPaths.OMPModelsPath)
+	input.CustomPaths.OMPConfigPath = strings.TrimSpace(input.CustomPaths.OMPConfigPath)
+	input.CustomPaths.OMPSessionsDir = strings.TrimSpace(input.CustomPaths.OMPSessionsDir)
 	return input
 }
 

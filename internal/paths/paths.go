@@ -30,3 +30,20 @@ func DefaultPaths() AppPaths {
 		BackupDir:           filepath.Join(home, ".ompswitch", "backups"),
 	}
 }
+
+// ApplyCustomPaths returns a copy of base with the three OMP-related paths
+// overridden by non-empty values. config.json and backups are never
+// overridden — they stay on the Windows host as bootstrap anchors.
+func ApplyCustomPaths(base AppPaths, ompModelsPath, ompConfigPath, ompSessionsDir string) AppPaths {
+	result := base
+	if ompModelsPath != "" {
+		result.OMPModelsPath = ompModelsPath
+	}
+	if ompConfigPath != "" {
+		result.OMPConfigPath = ompConfigPath
+	}
+	if ompSessionsDir != "" {
+		result.OMPSessionsDir = ompSessionsDir
+	}
+	return result
+}

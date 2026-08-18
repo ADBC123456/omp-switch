@@ -105,10 +105,11 @@ body,
 .dashboard-nav__item:hover { background: var(--color-hover-bg); color: var(--text-primary); }
 .dashboard-nav__item:active { transform: scale(.985); }
 .dashboard-nav__item.is-active {
-  border-color: var(--color-divider-strong);
+  border-color: color-mix(in srgb, var(--color-accent) 42%, transparent);
   background: var(--color-accent-soft);
   color: var(--text-primary);
-  box-shadow: none;
+  font-weight: 600;
+  box-shadow: 0 1px 2px rgba(13,13,13,0.04);
 }
 
 .current-provider-card {
@@ -490,7 +491,7 @@ body,
 .quick-action > span { min-width: 0; display: grid; gap: 5px; }
 .quick-action strong { font-size: 12px; font-weight: 620; }
 .quick-action small { overflow: hidden; color: var(--text-secondary); font-size: 11px; text-overflow: ellipsis; white-space: nowrap; }
-.quick-action:hover { transform: translateY(-1px); border-color: var(--color-divider-strong); background: var(--surface-raised); }
+.quick-action:hover { transform: translateY(-1px); border-color: var(--color-accent); background: var(--surface-raised); box-shadow: 0 2px 6px rgba(13,13,13,0.06); }
 .quick-action:hover > .icon { transform: scale(1.04); }
 .quick-action:active { transform: translateY(0) scale(.988); }
 

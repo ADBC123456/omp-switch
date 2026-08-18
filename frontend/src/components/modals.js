@@ -14,12 +14,22 @@ function loadingModal(payload) {
   return modalFrame({ title: payload.title, description: payload.message, body: '<div class="loading-line" role="progressbar" aria-label="正在处理"><span></span></div>', actions: payload.requestId ? '<button class="text-button" data-cancel-discovery>取消获取</button>' : "" });
 }
 
+function modelParams(model) {
+  const parts = [];
+  if (model.maxTokens) parts.push(`最大输出 ${model.maxTokens}`);
+  if (model.reasoning != null) parts.push(model.reasoning ? "推理 是" : "推理 否");
+  if (model.contextWindow) parts.push(`上下文 ${Math.round(model.contextWindow / 1000)}K`);
+  return parts;
+}
+
 
 function modelEditor(payload) {
   const model = payload.model ?? {};
   const option = (value, label) => `<option value="${value}" ${model.api === value ? "selected" : ""}>${label}</option>`;
   const reasoning = model.reasoning === true ? "true" : model.reasoning === false ? "false" : "";
-  return modalFrame({ wide: true, title: payload.originalId ? "编辑模型" : "添加模型", body: `<div class="model-editor-grid"><label class="form-field"><span class="form-field__label">Model ID</span><input name="modelId" value="${escapeHtml(model.id ?? "")}"></label><label class="form-field"><span class="form-field__label">显示名称（可选）</span><input name="modelName" value="${escapeHtml(model.name ?? "")}"></label><label class="form-field"><span class="form-field__label">接口协议</span><select name="modelApi">${option("", "继承 Provider")}${option("openai-completions", "OpenAI Completions")}${option("openai-responses", "OpenAI Responses")}${option("anthropic-messages", "Anthropic Messages")}${option("google-generative-ai", "Google Generative AI")}</select></label><label class="form-field"><span class="form-field__label">Reasoning</span><select name="modelReasoning"><option value="" ${reasoning === "" ? "selected" : ""}>未知</option><option value="true" ${reasoning === "true" ? "selected" : ""}>是</option><option value="false" ${reasoning === "false" ? "selected" : ""}>否</option></select></label><label class="form-field"><span class="form-field__label">Context Window</span><input name="modelContextWindow" type="number" min="0" value="${model.contextWindow || ""}"></label><label class="form-field"><span class="form-field__label">Max Tokens</span><input name="modelMaxTokens" type="number" min="0" value="${model.maxTokens || ""}"></label></div>${payload.error ? `<p class="form-error" role="alert">${escapeHtml(payload.error)}</p>` : ""}`, actions: '<button class="text-button" data-close-modal>取消</button><button class="text-button text-button--accent" data-save-model>保存模型</button>' });
+  const fetched = modelParams(model);
+  const fetchedHint = fetched.length ? `<p class="model-fetched-hint"><span>已从接口获取</span>${fetched.map((part) => `<b>${escapeHtml(part)}</b>`).join("")}</p>` : "";
+  return modalFrame({ wide: true, title: payload.originalId ? "编辑模型" : "添加模型", body: `${fetchedHint}<div class="model-editor-grid"><label class="form-field"><span class="form-field__label">模型 ID</span><input name="modelId" value="${escapeHtml(model.id ?? "")}"></label><label class="form-field"><span class="form-field__label">显示名称（可选）</span><input name="modelName" value="${escapeHtml(model.name ?? "")}"></label><label class="form-field"><span class="form-field__label">接口协议</span><select name="modelApi">${option("", "继承 Provider")}${option("openai-completions", "OpenAI Completions")}${option("openai-responses", "OpenAI Responses")}${option("anthropic-messages", "Anthropic Messages")}${option("google-generative-ai", "Google Generative AI")}</select></label><label class="form-field"><span class="form-field__label">推理</span><select name="modelReasoning"><option value="" ${reasoning === "" ? "selected" : ""}>未知</option><option value="true" ${reasoning === "true" ? "selected" : ""}>是</option><option value="false" ${reasoning === "false" ? "selected" : ""}>否</option></select></label><label class="form-field"><span class="form-field__label">上下文窗口（Tokens）</span><input name="modelContextWindow" type="number" min="0" value="${model.contextWindow || ""}" placeholder="未获取"></label><label class="form-field"><span class="form-field__label">最大输出（Tokens）</span><input name="modelMaxTokens" type="number" min="0" value="${model.maxTokens || ""}" placeholder="未获取"></label></div>${payload.error ? `<p class="form-error" role="alert">${escapeHtml(payload.error)}</p>` : ""}`, actions: '<button class="text-button" data-close-modal>取消</button><button class="text-button text-button--accent" data-save-model>保存模型</button>' });
 }
 
 function discoveryReview(payload) {
@@ -27,19 +37,45 @@ function discoveryReview(payload) {
   const selected = new Set(payload.selected ?? []);
   const visible = (payload.added ?? []).filter((model) => !query || `${model.id} ${model.name ?? ""}`.toLowerCase().includes(query.toLowerCase()));
   const selectedVisible = visible.filter((model) => selected.has(model.id)).length;
-  const section = (title, models, open, selectable = false) => {
-    const row = (model) => `<span><strong>${escapeHtml(model.name || model.id)}</strong><small>${escapeHtml(model.id)}</small></span>`;
-    const items = models.length ? models.map((model) => selectable ? renderCheckbox({ checked: selected.has(model.id), dataset: { reviewModel: model.id }, className: "discovery-row checkbox", content: row(model) }) : `<span class="discovery-row">${row(model)}</span>`).join("") : '<p class="quiet-empty">无</p>';
+  const section = (title, models, open, selectable = false, editable = false) => {
+    const row = (model) => {
+      const params = modelParams(model);
+      const main = `<span class="discovery-row__main"><strong>${escapeHtml(model.name || model.id)}</strong><small>${escapeHtml(model.id)}</small>${params.length ? `<small class="discovery-row__params">${escapeHtml(params.join(" · "))}</small>` : ""}</span>`;
+      const edit = editable ? `<button class="text-button discovery-row__edit" type="button" data-edit-discovered-model="${escapeHtml(model.id)}">编辑</button>` : "";
+      if (selectable) {
+        return `<div class="discovery-row ${selected.has(model.id) ? "is-selected" : ""}">${renderCheckbox({ checked: selected.has(model.id), dataset: { reviewModel: model.id }, label: `选择 ${model.name || model.id}`, className: "discovery-row__check" })}${main}${edit}</div>`;
+      }
+      return `<div class="discovery-row">${main}${edit}</div>`;
+    };
+    const items = models.length ? models.map((model) => row(model)).join("") : '<p class="quiet-empty">无</p>';
     return `<details class="discovery-group" ${open ? "open" : ""}><summary>${title}<span>${models.length}</span></summary><div class="discovery-list">${items}</div></details>`;
   };
-  return modalFrame({ wide: true, variant: "pills discovery-review", title: "识别结果", description: `新增 ${payload.added.length} · 已存在 ${payload.existing.length} · 未识别 ${payload.missing.length}`, body: `<form class="discovery-toolbar" data-discovery-search-form><label class="discovery-search"><span class="discovery-search__label">搜索模型</span><span class="discovery-search__control"><input type="search" data-discovery-search value="${escapeHtml(query)}" placeholder="输入 ID 或名称，按 Enter 搜索"><button class="discovery-search__button" type="submit">搜索</button></span></label><button class="text-button" type="button" data-toggle-filtered-review>${selectedVisible === visible.length && visible.length ? "取消选择筛选项" : "选择筛选项"}</button><span class="discovery-count" aria-live="polite">${selectedVisible}/${visible.length} 已选</span></form>${payload.warnings.length ? `<div class="discovery-warnings">${payload.warnings.map((warning) => `<p>${escapeHtml(warning)}</p>`).join("")}</div>` : ""}${section("新增", visible, true, true)}${section("已存在", payload.existing, false)}${section("本次未识别", payload.missing, false)}`, actions: '<button class="text-button" data-close-modal>取消</button><button class="text-button text-button--accent" data-import-models>导入所选模型</button>' });
+  return modalFrame({ wide: true, variant: "pills discovery-review", title: "识别结果", description: `新增 ${payload.added.length} · 已存在 ${payload.existing.length} · 未识别 ${payload.missing.length}`, body: `<form class="discovery-toolbar" data-discovery-search-form><label class="discovery-search"><span class="discovery-search__label">搜索模型</span><span class="discovery-search__control"><input type="search" data-discovery-search value="${escapeHtml(query)}" placeholder="输入 ID 或名称，按 Enter 搜索"><button class="discovery-search__button" type="submit">搜索</button></span></label><button class="text-button" type="button" data-toggle-filtered-review>${selectedVisible === visible.length && visible.length ? "取消选择筛选项" : "选择筛选项"}</button><span class="discovery-count" aria-live="polite">${selectedVisible}/${visible.length} 已选</span></form>${payload.warnings.length ? `<div class="discovery-warnings">${payload.warnings.map((warning) => `<p>${escapeHtml(warning)}</p>`).join("")}</div>` : ""}${section("新增", visible, true, true, true)}${section("已存在", payload.existing, false, false, true)}${section("本次未识别", payload.missing, false)}`, actions: '<button class="text-button" data-close-modal>取消</button><button class="text-button text-button--accent" data-import-models>导入所选模型</button>' });
 }
 
 function settingsModal(state) {
-  const field = (label,name,value) => `<label class="form-field"><span class="form-field__label">${label}</span><input name="${name}" value="${escapeHtml(value ?? "")}"></label>`;
-  const path = (label,value) => `<div class="settings-path"><span>${label}</span><code>${escapeHtml(value || "—")}</code></div>`;
+  const field = (label, name, value) => `<label class="form-field"><span class="form-field__label">${label}</span><input name="${name}" value="${escapeHtml(value ?? "")}"></label>`;
+  const pathField = (label, name, value) => `<label class="form-field"><span class="form-field__label">${label}</span><input name="${name}" value="${escapeHtml(value ?? "")}" placeholder="留空使用默认路径"></label>`;
+  const pathInfo = (label, value) => `<div class="settings-path"><span>${label}</span><code>${escapeHtml(value || "—")}</code></div>`;
   const themeOption = (value, label) => `<option value="${value}" ${state.settings.theme === value ? "selected" : ""}>${label}</option>`;
-  return modalFrame({ wide: true, title: "应用设置", body: `<div class="settings-form"><label class="form-field"><span class="form-field__label">界面主题</span><select name="theme">${themeOption("system", "跟随系统")}${themeOption("light", "浅色")}${themeOption("dark", "深色")}</select></label>${field("OMP 命令","ompCommand",state.settings.ompCommand)}${field("工作目录","workingDir",state.settings.workingDir)}<div class="settings-paths">${path("Switch 配置",state.paths?.ompSwitchConfigPath)}${path("OMP Models",state.paths?.ompModelsPath)}${path("OMP Config",state.paths?.ompConfigPath)}${path("OMP 会话",state.paths?.ompSessionsDir)}${path("备份目录",state.paths?.backupDir)}</div><div class="settings-update"><span>v${escapeHtml(state.version)}</span><button class="text-button" data-check-update>检查更新</button><span data-update-status aria-live="polite"></span></div></div>`, actions: '<button class="text-button" data-close-modal>取消</button><button class="text-button text-button--accent" data-save-settings>保存设置</button>' });
+  const launchMode = state.settings.launchMode || "native";
+  const launchModeOption = (value, label) => `<option value="${value}" ${launchMode === value ? "selected" : ""}>${label}</option>`;
+  const distroValue = state.settings.wslDistro || "";
+  const distroOptions = (state.wslDistros || []).map((d) => {
+    const id = (d && d.id) || d;
+    const label = (d && d.name) || d || "";
+    const parts = [];
+    if (d && d.version) parts.push(`WSL${d.version}`);
+    if (d && d.isDefault) parts.push("默认");
+    const suffix = parts.length ? ` (${parts.join(", ")})` : "";
+    return `<option value="${escapeHtml(id)}" ${distroValue === id ? "selected" : ""}>${escapeHtml(label)}${suffix}</option>`;
+  }).join("");
+  const distroSelect = `<label class="form-field"><span class="form-field__label">WSL 发行版</span><div class="settings-inline"><select name="wslDistro"><option value="">使用默认 WSL</option>${distroOptions}</select><button type="button" class="text-button" data-refresh-wsl-distros title="检测并枚举已安装的 WSL 发行版">检测</button></div></label>`;
+  const distroInput = `<label class="form-field"><span class="form-field__label">WSL 发行版</span><div class="settings-inline"><input name="wslDistro" value="${escapeHtml(distroValue)}" placeholder="如 Ubuntu"><button type="button" class="text-button" data-refresh-wsl-distros title="检测并枚举已安装的 WSL 发行版">检测</button></div></label>`;
+  const distroControl = (state.wslDistros && state.wslDistros.length > 0) ? distroSelect : distroInput;
+  const detectLabel = state.settings.launchMode === "wsl" ? "检测 OMP 路径" : "检测本地 OMP 路径";
+  const detectButton = `<button type="button" class="text-button text-button--accent" data-detect-wsl-paths>${detectLabel}</button>`;
+  return modalFrame({ wide: true, title: "应用设置", body: `<div class="settings-form"><label class="form-field"><span class="form-field__label">界面主题</span><select name="theme">${themeOption("system", "跟随系统")}${themeOption("light", "浅色")}${themeOption("dark", "深色")}</select></label>${field("OMP 命令", "ompCommand", state.settings.ompCommand)}${field("工作目录", "workingDir", state.settings.workingDir)}<label class="form-field"><span class="form-field__label">启动模式</span><select name="launchMode">${launchModeOption("native", "本机 Windows")}${launchModeOption("wsl", "WSL 子系统")}</select></label>${launchMode === "wsl" ? distroControl : ""}${detectButton ? `<div class="settings-detect-row">${detectButton}<span class="settings-detect-status" data-detect-status aria-live="polite"></span></div>` : ""}<div class="settings-paths">${pathInfo("Switch 配置（不可改）", state.paths?.ompSwitchConfigPath)}${pathInfo("备份目录（不可改）", state.paths?.backupDir)}${pathField("OMP Models 路径", "customOmpModelsPath", state.settings.customPaths?.ompModelsPath)}${pathField("OMP Config 路径", "customOmpConfigPath", state.settings.customPaths?.ompConfigPath)}${pathField("OMP 会话目录", "customOmpSessionsDir", state.settings.customPaths?.ompSessionsDir)}</div><div class="settings-update"><span>v${escapeHtml(state.version)}</span><button class="text-button" data-check-update>检查更新</button><span data-update-status aria-live="polite"></span></div></div>`, actions: '<button class="text-button" data-close-modal>取消</button><button class="text-button text-button--accent" data-save-settings>保存设置</button>' });
 }
 
 function confirmation(kind, payload) {
@@ -53,7 +89,7 @@ function confirmation(kind, payload) {
 function modelDetailsModal(payload) {
   const model = payload.model ?? {};
   const row = (label, value) => `<div class="settings-path"><span>${escapeHtml(label)}</span><code>${escapeHtml(value || "未配置")}</code></div>`;
-  return modalFrame({ title: model.name || model.id || "模型详情", body: `<div class="settings-paths">${row("Model ID", model.id)}${row("接口协议", model.api)}${row("上下文窗口", model.contextWindow ? String(model.contextWindow) : "")}${row("最大输出", model.maxTokens ? String(model.maxTokens) : "")}</div>`, actions: '<button class="text-button text-button--accent" data-close-modal>关闭</button>' });
+  return modalFrame({ title: model.name || model.id || "模型详情", body: `<div class="settings-paths">${row("模型 ID", model.id)}${row("接口协议", model.api)}${row("推理", model.reasoning == null ? "" : model.reasoning ? "是" : "否")}${row("上下文窗口（Tokens）", model.contextWindow ? String(model.contextWindow) : "")}${row("最大输出（Tokens）", model.maxTokens ? String(model.maxTokens) : "")}</div>`, actions: '<button class="text-button text-button--accent" data-close-modal>关闭</button>' });
 }
 
 

@@ -49,9 +49,15 @@ export function ListProviders():Promise<Array<provider.View>>;
 
 export function ListSessions():Promise<Array<sessions.Info>>;
 
+export function ListWSLDistros():Promise<Array<main.WSLDistro>>;
+
 export function MarkUpdateChecked():Promise<void>;
 
 export function OpenConfigFolder():Promise<void>;
+
+export function ResolveNativePaths():Promise<main.PathDetectResult>;
+
+export function ResolveWSLPaths(arg1:string):Promise<main.PathDetectResult>;
 
 export function SaveModel(arg1:string,arg2:string,arg3:provider.ModelInfo):Promise<config.AppState>;
 

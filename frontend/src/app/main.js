@@ -1,5 +1,5 @@
 import { createAppActions } from "../actions/app-actions.js";
-import { createOperationFeedback } from "../actions/operation-feedback.js";
+import { createOperationFeedback, errorMessage } from "../actions/operation-feedback.js";
 import { createProviderActions } from "../actions/provider-actions.js";
 import { renderApp, renderContentLayer, renderDrawerLayer } from "../components/app-shell.js";
 import { renderModal } from "../components/modals.js";
@@ -13,7 +13,7 @@ import { bindGlowButtons } from "../ui/glow-effect.js";
 
 const root = document.querySelector("#app");
 const api = new WailsApi();
-const store = createStore({ version: "1.2.0", providers: [], selectedProviderId: "", modelRoles: {}, settings: { ompCommand: "omp", workingDir: "", theme: "system" }, paths: {}, logs: [], presets: PRESETS, modal: null, drawer: null, modelMenuOpen: false, providerMenuOpen: false, launchPending: false, testPending: false });
+const store = createStore({ version: "1.2.0", providers: [], selectedProviderId: "", modelRoles: {}, settings: { ompCommand: "omp", workingDir: "", theme: "system", launchMode: "native", wslDistro: "", customPaths: {} }, paths: {}, logs: [], presets: PRESETS, modal: null, drawer: null, modelMenuOpen: false, providerMenuOpen: false, launchPending: false, testPending: false, wslDistros: [] });
 const feedback = createOperationFeedback(store);
 const themeManager = new ThemeManager({ api, store });
 const providerForm = createProviderFormController({ root, api, store, feedback });
@@ -118,6 +118,54 @@ const clickActions = {
   "data-window-minimise": () => api.minimiseWindow(),
   "data-window-toggle-maximise": () => api.toggleMaximiseWindow(),
   "data-window-close": () => api.closeWindow(),
+  "data-refresh-wsl-distros": async () => {
+    const dialog = root.querySelector(".modal-dialog");
+    const statusEl = dialog?.querySelector("[data-detect-status]");
+    if (statusEl) { statusEl.textContent = "正在检测发行版..."; statusEl.dataset.error = ""; }
+    store.setState((state) => ({ ...state, wslDistrosLoading: true }));
+    try {
+      const distros = await api.listWSLDistros();
+      store.setState((state) => ({ ...state, wslDistros: distros, wslDistrosLoading: false }));
+      if (statusEl) { statusEl.textContent = distros.length ? `检测到 ${distros.length} 个发行版，请在下拉中选择` : "未检测到 WSL 发行版"; statusEl.dataset.error = distros.length ? "" : "true"; }
+    } catch (error) {
+      store.setState((state) => ({ ...state, wslDistros: [], wslDistrosLoading: false }));
+      if (statusEl) { statusEl.textContent = errorMessage(error); statusEl.dataset.error = "true"; }
+    }
+  },
+  "data-detect-wsl-paths": async () => {
+    const dialog = root.querySelector(".modal-dialog");
+    const mode = store.getState().settings.launchMode || "native";
+    const statusEl = dialog?.querySelector("[data-detect-status]");
+    const setStatus = (text, error = false) => { if (statusEl) { statusEl.textContent = text; statusEl.dataset.error = error ? "true" : ""; } };
+    let distro = "";
+    if (mode === "wsl") {
+      distro = dialog?.querySelector("[name='wslDistro']")?.value.trim() || store.getState().settings.wslDistro || "";
+      if (!distro) { setStatus("请先选择或填写 WSL 发行版名称", true); return; }
+    }
+    setStatus("正在检测...");
+    try {
+      const result = mode === "wsl" ? await api.resolveWSLPaths(distro) : await api.resolveNativePaths();
+      const paths = result.customPaths || {};
+      const fill = (name, value) => { const el = dialog?.querySelector(`[name="${CSS.escape(name)}"]`); if (el) el.value = value ?? ""; };
+      fill("customOmpModelsPath", paths.ompModelsPath);
+      fill("customOmpConfigPath", paths.ompConfigPath);
+      fill("customOmpSessionsDir", paths.ompSessionsDir);
+      // Persist immediately: the backend rebuilds paths/service and re-imports
+      // providers from the just-detected OMP install, then returns the fresh
+      // state so the main dashboard switches to the target installation.
+      const nextSettings = {
+        ompCommand: dialog?.querySelector('[name="ompCommand"]')?.value.trim() ?? store.getState().settings.ompCommand,
+        workingDir: dialog?.querySelector('[name="workingDir"]')?.value.trim() ?? store.getState().settings.workingDir,
+        theme: dialog?.querySelector('[name="theme"]')?.value ?? store.getState().settings.theme,
+        launchMode: mode,
+        ...(mode === "wsl" ? { wslDistro: distro } : {}),
+        customPaths: { ompModelsPath: paths.ompModelsPath ?? "", ompConfigPath: paths.ompConfigPath ?? "", ompSessionsDir: paths.ompSessionsDir ?? "" }
+      };
+      const backend = await api.updateSettings(nextSettings);
+      store.setState((state) => ({ ...state, ...backend, presets: state.presets, modal: null, modelMenuOpen: false }));
+      if (statusEl) statusEl.textContent = "已检测并使用 OMP 路径，主页已切换";
+    } catch (error) { setStatus(errorMessage(error), true); }
+  },
   "data-check-update": appActions.checkUpdate,
   "data-skip-update": appActions.skipUpdate,
   "data-install-update": appActions.installUpdate
@@ -161,6 +209,16 @@ root.addEventListener("click", async (event) => {
 
 root.addEventListener("input", (event) => {
   if (event.target.matches("[data-discovery-search]") && !event.target.value && store.getState().modal?.payload?.query) providerActions.updateReviewQuery("");
+});
+root.addEventListener("change", (event) => {
+  if (event.target.matches("[name='launchMode']")) {
+    const mode = event.target.value;
+    store.setState((state) => ({ ...state, settings: { ...state.settings, launchMode: mode } }));
+  }
+  if (event.target.matches("[name='theme']")) {
+    const theme = event.target.value;
+    store.setState((state) => ({ ...state, settings: { ...state.settings, theme } }));
+  }
 });
 root.addEventListener("submit", (event) => {
   if (!event.target.matches("[data-discovery-search-form]")) return;
@@ -255,7 +313,8 @@ function captureModalView() {
     focusedReviewModel: active?.dataset?.reviewModel ?? "",
     searchFocused: active?.matches?.("[data-discovery-search]") ?? false,
     scrollPositions: [...dialog.querySelectorAll(".discovery-list")].map((list) => list.scrollTop),
-    openGroups: [...dialog.querySelectorAll(".discovery-group")].map((group) => group.open)
+    openGroups: [...dialog.querySelectorAll(".discovery-group")].map((group) => group.open),
+    settingsForm: [...dialog.querySelectorAll(".settings-form input, .settings-form select")].map((el) => ({ name: el.name, value: el.value }))
   };
 }
 
@@ -263,6 +322,12 @@ function restoreModalView(view) {
   if (!view) return;
   const dialog = root.querySelector(".modal-dialog");
   if (!dialog) return;
+  if (view.settingsForm) {
+    for (const item of view.settingsForm) {
+      const el = dialog.querySelector(`[name="${CSS.escape(item.name)}"]`);
+      if (el && el.value !== item.value) el.value = item.value;
+    }
+  }
   dialog.querySelectorAll(".discovery-group").forEach((group, index) => { if (index < view.openGroups.length) group.open = view.openGroups[index]; });
   dialog.querySelectorAll(".discovery-list").forEach((list, index) => { list.scrollTop = view.scrollPositions[index] ?? 0; });
   const search = dialog.querySelector("[data-discovery-search]");
@@ -287,7 +352,8 @@ function renderState(state) {
         drawer.innerHTML = renderDrawerLayer(state);
         if (!renderedState.drawer && state.drawer) animateOverlayIn(".drawer", [{ transform: "translateX(calc(100% + 10px))" }, { transform: "translateX(0)" }], { duration: 442, easing: "cubic-bezier(.34, 1.56, .64, 1)" });
       }
-      if (renderedState.modal !== state.modal || (state.modal?.kind === "settings" && renderedState.settings !== state.settings)) {
+      const modalDataChanged = state.modal && (renderedState.providers !== state.providers || (state.modal?.kind === "settings" && (renderedState.settings !== state.settings || renderedState.wslDistros !== state.wslDistros)));
+      if (renderedState.modal !== state.modal || modalDataChanged) {
         const modalView = renderedState.modal?.kind === state.modal?.kind ? captureModalView() : null;
         modal.innerHTML = renderModal(state);
         restoreModalView(modalView);

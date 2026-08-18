@@ -80,7 +80,7 @@ export function validateModelInput(input, existingModels, originalId = "") {
   if (/[\u0000-\u001f\u007f]/.test(input.id)) return "模型 ID 不能包含控制字符";
   if (existingModels.some((model) => model.id === input.id && model.id !== originalId)) return `模型 ID 冲突：${input.id}`;
   if (input.api && !APIS.has(input.api)) return "模型 API 模式不受支持";
-  if (!Number.isInteger(input.contextWindow) || input.contextWindow < 0) return "Context Window 必须是正整数";
-  if (!Number.isInteger(input.maxTokens) || input.maxTokens < 0) return "Max Tokens 必须是正整数";
+  if (!Number.isInteger(input.contextWindow) || input.contextWindow < 0) return "上下文窗口必须是正整数";
+  if (!Number.isInteger(input.maxTokens) || input.maxTokens < 0) return "最大输出必须是正整数";
   return "";
 }

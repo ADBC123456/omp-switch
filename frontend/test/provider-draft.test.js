@@ -30,5 +30,6 @@ test("model normalization preserves unknown true false reasoning", () => {
 
 test("model validation rejects duplicate and negative limits", () => {
   assert.match(validateModelInput(normalizeModelInput({ id: "same", contextWindow: "0", maxTokens: "0" }), [{ id: "same" }]), /冲突/);
-  assert.match(validateModelInput(normalizeModelInput({ id: "new", contextWindow: "-1", maxTokens: "0" }), []), /Context/);
+  assert.match(validateModelInput(normalizeModelInput({ id: "new", contextWindow: "-1", maxTokens: "0" }), []), /上下文/);
+  assert.match(validateModelInput(normalizeModelInput({ id: "new", contextWindow: "0", maxTokens: "-1" }), []), /最大输出/);
 });

@@ -82,12 +82,24 @@ export function ListSessions() {
   return window['go']['main']['App']['ListSessions']();
 }
 
+export function ListWSLDistros() {
+  return window['go']['main']['App']['ListWSLDistros']();
+}
+
 export function MarkUpdateChecked() {
   return window['go']['main']['App']['MarkUpdateChecked']();
 }
 
 export function OpenConfigFolder() {
   return window['go']['main']['App']['OpenConfigFolder']();
+}
+
+export function ResolveNativePaths() {
+  return window['go']['main']['App']['ResolveNativePaths']();
+}
+
+export function ResolveWSLPaths(arg1) {
+  return window['go']['main']['App']['ResolveWSLPaths'](arg1);
 }
 
 export function SaveModel(arg1, arg2, arg3) {

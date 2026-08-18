@@ -2,6 +2,7 @@ package provider
 
 import (
 	"context"
+	"io"
 	"errors"
 	"net/http"
 	"net/http/httptest"
@@ -150,5 +151,40 @@ func TestDiscoverModelsCancellationClosesRequest(t *testing.T) {
 	case <-done:
 	case <-time.After(time.Second):
 		t.Fatal("request context not canceled")
+	}
+}
+
+func TestReadDiscoveryResponseHTML404GivesHint(t *testing.T) {
+	response := &http.Response{
+		StatusCode: http.StatusNotFound,
+		Status:     "404 Not Found",
+		Body:       io.NopCloser(strings.NewReader("<!DOCTYPE html><html><body><h1>Not Found</h1></body></html>")),
+	}
+	_, err := readDiscoveryResponse(response)
+	if err == nil {
+		t.Fatal("expected error for 404 HTML response")
+	}
+	message := err.Error()
+	if strings.Contains(message, "<html") || strings.Contains(message, "<body") {
+		t.Fatalf("HTML body leaked into error: %q", message)
+	}
+	if !strings.Contains(message, "不是 OpenAI 兼容 API 端点") {
+		t.Fatalf("expected fix-oriented hint, got %q", message)
+	}
+}
+
+func TestReadDiscoveryResponseTruncatesLongJSONError(t *testing.T) {
+	long := strings.Repeat("x", 1024)
+	response := &http.Response{
+		StatusCode: http.StatusBadRequest,
+		Status:     "400 Bad Request",
+		Body:       io.NopCloser(strings.NewReader(`{"error":"` + long + `"}`)),
+	}
+	_, err := readDiscoveryResponse(response)
+	if err == nil {
+		t.Fatal("expected error")
+	}
+	if len(err.Error()) > 400 {
+		t.Fatalf("error too long (%d bytes): %q", len(err.Error()), err.Error())
 	}
 }

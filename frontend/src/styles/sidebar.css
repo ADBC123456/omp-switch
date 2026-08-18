@@ -150,10 +150,13 @@
 }
 
 .sidebar .text-button {
-  color: var(--ink-muted);
+  color: var(--ink-secondary);
+  font-weight: 600;
 }
 
 .sidebar .text-button:hover,
 .sidebar .text-button--accent {
   color: var(--accent-strong);
+  background: var(--color-accent-soft);
+  border-color: color-mix(in srgb, var(--color-accent) 38%, transparent);
 }

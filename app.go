@@ -5,10 +5,14 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
+	"strconv"
 	"sync"
 	"time"
+	"unicode/utf16"
+	"encoding/binary"
 
 	"github.com/fsnotify/fsnotify"
 	"github.com/wailsapp/wails/v2/pkg/runtime"
@@ -44,10 +48,19 @@ type App struct {
 	discoveryByProvider map[string]string
 	selectLaunchDir     func(string) (string, error)
 	startManagedOMP     func(omp.LaunchPreview, string) error
+	startWSLOMP         func(cfg wslLaunchConfig) error
 	watcher             *fsnotify.Watcher
 	watcherStop         chan struct{}
 	writeMu             sync.Mutex
 	lastSelfWrite       time.Time
+}
+
+// wslLaunchConfig carries all parameters needed to start OMP inside WSL.
+type wslLaunchConfig struct {
+	ompCommand string
+	args       []string
+	distro     string
+	workingDir string
 }
 
 func NewApp() *App {
@@ -56,6 +69,9 @@ func NewApp() *App {
 	app.startManagedOMP = func(preview omp.LaunchPreview, workingDir string) error {
 		_, err := omp.StartManaged(preview, workingDir)
 		return err
+	}
+	app.startWSLOMP = func(cfg wslLaunchConfig) error {
+		return omp.StartWSL(cfg.ompCommand, cfg.args, cfg.distro, cfg.workingDir)
 	}
 	return app
 }
@@ -80,10 +96,21 @@ func (a *App) startup(ctx context.Context) {
 			return err
 		}
 	}
-	_, _ = a.service.Load()
+	if a.startWSLOMP == nil {
+		a.startWSLOMP = func(cfg wslLaunchConfig) error {
+			return omp.StartWSL(cfg.ompCommand, cfg.args, cfg.distro, cfg.workingDir)
+		}
+	}
+	// Load config once to read customPaths, then rebuild paths+service if overrides exist.
+	cfg, _ := a.service.Load()
+	if !cfg.Settings.CustomPaths.IsEmpty() {
+		a.paths = paths.ApplyCustomPaths(a.paths, cfg.Settings.CustomPaths.OMPModelsPath, cfg.Settings.CustomPaths.OMPConfigPath, cfg.Settings.CustomPaths.OMPSessionsDir)
+		a.service = config.NewService(a.paths)
+	}
 	a.startConfigWatcher()
 	a.startBackgroundUpdateCheck()
 }
+
 func (a *App) shutdown(context.Context) { a.stopConfigWatcher() }
 func (a *App) markSelfWrite()           { a.writeMu.Lock(); a.lastSelfWrite = time.Now(); a.writeMu.Unlock() }
 func (a *App) recentSelfWrite() bool {
@@ -148,6 +175,7 @@ func (a *App) startConfigWatcher() {
 		}
 	}(a.watcherStop)
 }
+
 func (a *App) stopConfigWatcher() {
 	if a.watcherStop != nil {
 		close(a.watcherStop)
@@ -162,16 +190,25 @@ func (a *App) stopConfigWatcher() {
 func (a *App) state(cfg config.SwitchConfig) config.AppState {
 	return config.NewAppState(appVersion, cfg, a.paths, []string{"就绪。"})
 }
+
 func (a *App) GetAppState() (config.AppState, error) {
-	cfg, e := a.service.Load()
-	if e != nil {
-		return config.AppState{}, e
+	cfg, err := a.service.Load()
+	if err != nil {
+		return config.AppState{}, err
 	}
 	return a.state(cfg), nil
 }
+
 func (a *App) ListProviders() ([]provider.View, error) {
-	state, e := a.GetAppState()
-	return state.Providers, e
+	cfg, err := a.service.Load()
+	if err != nil {
+		return nil, err
+	}
+	views := make([]provider.View, len(cfg.Providers))
+	for index, item := range cfg.Providers {
+		views[index] = provider.NewView(item)
+	}
+	return views, nil
 }
 
 func (a *App) CreateProvider(input provider.SaveInput) (ProviderMutationResult, error) {
@@ -197,6 +234,7 @@ func (a *App) CreateProvider(input provider.SaveInput) (ProviderMutationResult, 
 	}
 	return ProviderMutationResult{a.state(cfg), p.ID, p.ID != requested}, nil
 }
+
 func (a *App) UpdateProvider(id string, input provider.SaveInput) (ProviderMutationResult, error) {
 	a.mutationMu.Lock()
 	defer a.mutationMu.Unlock()
@@ -229,6 +267,7 @@ func (a *App) UpdateProvider(id string, input provider.SaveInput) (ProviderMutat
 	}
 	return ProviderMutationResult{a.state(cfg), p.ID, p.ID != requested}, nil
 }
+
 func (a *App) GetProviderDeleteImpact(id string) ([]string, error) {
 	cfg, e := a.service.Load()
 	if e != nil {
@@ -239,6 +278,7 @@ func (a *App) GetProviderDeleteImpact(id string) ([]string, error) {
 	}
 	return omp.ManagedRoleImpact(cfg.ModelRoles, cfg.Providers, id, ""), nil
 }
+
 func (a *App) DeleteProvider(id string) (config.AppState, error) {
 	a.mutationMu.Lock()
 	defer a.mutationMu.Unlock()
@@ -309,6 +349,7 @@ func (a *App) SaveModel(providerID, originalID string, input provider.ModelInfo)
 	}
 	return a.state(cfg), nil
 }
+
 func selectedModelIDs(p provider.Config, modelIDs []string) ([]string, map[string]struct{}, error) {
 	ids := make([]string, 0, len(modelIDs))
 	selected := make(map[string]struct{}, len(modelIDs))
@@ -392,6 +433,7 @@ func (a *App) DeleteModels(providerID string, modelIDs []string) (config.AppStat
 	}
 	return a.state(cfg), nil
 }
+
 func (a *App) SetSelectedProvider(id string) (config.AppState, error) {
 	a.mutationMu.Lock()
 	defer a.mutationMu.Unlock()
@@ -408,11 +450,13 @@ func (a *App) SetSelectedProvider(id string) (config.AppState, error) {
 	}
 	return a.state(cfg), nil
 }
+
 func (a *App) SetSelectedModel(providerID, modelID string) (config.AppState, error) {
 	a.mutationMu.Lock()
 	defer a.mutationMu.Unlock()
 	return a.setSelectedModelLocked(providerID, modelID)
 }
+
 func (a *App) setSelectedModelLocked(providerID, modelID string) (config.AppState, error) {
 	cfg, e := a.loadClone()
 	if e != nil {
@@ -433,6 +477,7 @@ func (a *App) setSelectedModelLocked(providerID, modelID string) (config.AppStat
 	}
 	return a.state(cfg), nil
 }
+
 func (a *App) UpdateModelRoles(updates []config.RoleUpdate) (config.AppState, error) {
 	a.mutationMu.Lock()
 	defer a.mutationMu.Unlock()
@@ -458,6 +503,7 @@ func (a *App) UpdateModelRoles(updates []config.RoleUpdate) (config.AppState, er
 	}
 	return a.state(cfg), nil
 }
+
 func (a *App) UpdateSettings(input config.AppSettings) (config.AppState, error) {
 	a.mutationMu.Lock()
 	defer a.mutationMu.Unlock()
@@ -466,9 +512,29 @@ func (a *App) UpdateSettings(input config.AppSettings) (config.AppState, error) 
 		return config.AppState{}, e
 	}
 	input.LastUpdateCheckAtUnix = cfg.Settings.LastUpdateCheckAtUnix
-	cfg.Settings = config.NormalizeSettings(input)
+	normalized := config.NormalizeSettings(input)
+	pathsChanged := normalized.CustomPaths != cfg.Settings.CustomPaths
+	cfg.Settings = normalized
 	if e = a.saveAppOnly(cfg); e != nil {
 		return config.AppState{}, e
+	}
+	// Custom paths changed: rebuild paths + service so the new OMP locations
+	// take effect immediately (no restart required). config.json and backups
+	// stay on the Windows host, so the watcher keeps working.
+	if pathsChanged {
+		a.paths = paths.ApplyCustomPaths(a.paths, cfg.Settings.CustomPaths.OMPModelsPath, cfg.Settings.CustomPaths.OMPConfigPath, cfg.Settings.CustomPaths.OMPSessionsDir)
+		a.service = config.NewService(a.paths)
+		// Re-import providers and roles from the newly targeted OMP install
+		// (e.g. a WSL distro) so the UI immediately shows its models instead
+		// of the previous installation's.
+		imported, importErr := a.service.ImportFromOMP(cfg)
+		if importErr != nil {
+			return config.AppState{}, fmt.Errorf("路径已保存，但无法从新路径导入 OMP 配置：%w", importErr)
+		}
+		cfg = imported
+		if e = a.saveOMP(cfg); e != nil {
+			return config.AppState{}, e
+		}
 	}
 	return a.state(cfg), nil
 }
@@ -487,6 +553,7 @@ func (a *App) LaunchOMP(providerID, modelID string) (omp.LaunchPreview, error) {
 	}
 	return omp.BuildLaunch(cfg.Settings.OMPCommand, providerID, modelID)
 }
+
 func (a *App) ExecuteLaunchOMP(providerID, modelID string) error {
 	a.mutationMu.Lock()
 	cfg, e := a.loadClone()
@@ -503,26 +570,59 @@ func (a *App) ExecuteLaunchOMP(providerID, modelID string) error {
 		a.mutationMu.Unlock()
 		return e
 	}
-	preview, e := omp.BuildLaunch(cfg.Settings.OMPCommand, providerID, modelID)
+	wslMode := cfg.Settings.LaunchMode == "wsl"
+	ompCommand := cfg.Settings.OMPCommand
+	if wslMode {
+		// Inside a WSL distro OMP is invoked by its shell name, never by a
+		// Windows path. Ignore the Windows-side command string.
+		ompCommand = "omp"
+	}
+	preview, e := omp.BuildLaunch(ompCommand, providerID, modelID)
 	if e != nil {
 		a.mutationMu.Unlock()
 		return e
 	}
-	workingDir, e := a.chooseLaunchDirectory(cfg.Settings.WorkingDir)
-	if e != nil || workingDir == "" {
-		a.mutationMu.Unlock()
-		return e
+	var workingDir string
+	if wslMode {
+		// WSL mode still asks the user to pick a working directory, but the
+		// Windows picker result is mapped to the WSL mount point (/mnt/...).
+		defaultDir := omp.WSLToWindowsPath(cfg.Settings.WorkingDir)
+		picked, pickErr := a.pickWSLDirectory(defaultDir)
+		if pickErr != nil {
+			a.mutationMu.Unlock()
+			return pickErr
+		}
+		if picked == "" {
+			a.mutationMu.Unlock()
+			return errors.New("已取消启动")
+		}
+		workingDir = omp.WindowsToWSLPath(picked)
+		cfg.Settings.WorkingDir = workingDir
+	} else {
+		workingDir, e = a.chooseLaunchDirectory(cfg.Settings.WorkingDir)
+		if e != nil || workingDir == "" {
+			a.mutationMu.Unlock()
+			return e
+		}
+		cfg.Settings.WorkingDir = workingDir
 	}
 	p.SelectedModelID = modelID
 	cfg.UpsertProvider(p, providerID)
 	cfg.SelectedProviderID = providerID
-	cfg.Settings.WorkingDir = workingDir
 	if e = a.saveAppOnly(cfg); e != nil {
 		a.mutationMu.Unlock()
 		return e
 	}
 	a.mutationMu.Unlock()
 
+	if wslMode {
+		return a.startWSLOMP(wslLaunchConfig{
+			ompCommand: ompCommand,
+			args:       preview.Arguments,
+			distro:     cfg.Settings.WSLDistro,
+			workingDir: workingDir,
+		})
+	}
 	return a.startManagedOMP(preview, workingDir)
 }
 
@@ -547,12 +647,43 @@ func (a *App) ContinueSession(id string) error {
 	if err != nil {
 		return err
 	}
-	preview, err := omp.BuildResumeLaunch(cfg.Settings.OMPCommand, sessionPath)
+	wslMode := cfg.Settings.LaunchMode == "wsl"
+	ompCommand := cfg.Settings.OMPCommand
+	if wslMode {
+		ompCommand = "omp"
+		// Sessions are stored under a UNC path (\\wsl.localhost\...); omp
+		// inside the distro needs the Linux path (/home/...).
+		linuxPath := omp.WSLUNCToWSLPath(sessionPath, cfg.Settings.WSLDistro)
+		if linuxPath == "" {
+			linuxPath = omp.WindowsToWSLPath(sessionPath)
+		}
+		if linuxPath == "" || strings.HasPrefix(strings.ToLower(linuxPath), "//") {
+			return errors.New("无法将会话路径映射到 WSL 发行版：" + sessionPath)
+		}
+		sessionPath = linuxPath
+	}
+	preview, err := omp.BuildResumeLaunch(ompCommand, sessionPath)
 	if err != nil {
 		return err
 	}
+	if wslMode {
+		return a.startWSLOMP(wslLaunchConfig{
+			ompCommand: ompCommand,
+			args:       preview.Arguments,
+			distro:     cfg.Settings.WSLDistro,
+			workingDir: info.WorkingDir,
+		})
+	}
 	return a.startManagedOMP(preview, info.WorkingDir)
 }
+
+func (a *App) pickWSLDirectory(defaultDirectory string) (string, error) {
+	if a.selectLaunchDir != nil {
+		return a.selectLaunchDir(defaultDirectory)
+	}
+	return runtime.OpenDirectoryDialog(a.ctx, runtime.OpenDialogOptions{Title: "选择 OMP 启动目录（将自动映射为 WSL 路径）", DefaultDirectory: defaultDirectory})
+}
+
 func (a *App) chooseLaunchDirectory(defaultDirectory string) (string, error) {
 	if a.selectLaunchDir != nil {
 		return a.selectLaunchDir(defaultDirectory)
@@ -600,13 +731,253 @@ func (a *App) TestModel(providerID, modelID string) (provider.ConnectionTestResu
 	defer cancel()
 	return provider.TestModel(requestContext, configured, model, key, provider.ModelTestOptions{})
 }
+
+// PathDetectResult reports detected OMP file locations for a launch mode.
+type PathDetectResult struct {
+	Mode        string            `json:"mode"`
+	HomeDir     string            `json:"homeDir"`
+	CustomPaths config.CustomPaths `json:"customPaths"`
+	Detected    bool              `json:"detected"`
+	Message     string            `json:"message"`
+}
+
+// WSLDistro describes one installed WSL distribution. ID is the stable
+// identifier passed to wsl.exe -d; Name is the display name.
+type WSLDistro struct {
+	ID        string `json:"id"`
+	Name      string `json:"name"`
+	Version   int    `json:"version"`
+	IsDefault bool   `json:"isDefault"`
+}
+
+// ensureOMPFiles creates the OMP directory layout (agent dir, sessions dir)
+// and default models.yml/config.yml when they are missing. Existing files are
+// never overwritten — an OMP install that already wrote its own config keeps
+// it untouched.
+func ensureOMPFiles(modelsPath, configPath, sessionsDir string) error {
+	if err := os.MkdirAll(filepath.Dir(modelsPath), 0o755); err != nil {
+		return fmt.Errorf("创建 OMP 目录: %w", err)
+	}
+	if err := os.MkdirAll(sessionsDir, 0o755); err != nil {
+		return fmt.Errorf("创建会话目录: %w", err)
+	}
+	if _, err := os.Stat(modelsPath); errors.Is(err, os.ErrNotExist) {
+		if err := os.WriteFile(modelsPath, []byte("providers: {}\n"), 0o644); err != nil {
+			return fmt.Errorf("创建 %s: %w", modelsPath, err)
+		}
+	}
+	if _, err := os.Stat(configPath); errors.Is(err, os.ErrNotExist) {
+		if err := os.WriteFile(configPath, []byte("{}\n"), 0o644); err != nil {
+			return fmt.Errorf("创建 %s: %w", configPath, err)
+		}
+	}
+	return nil
+}
+
+// ResolveWSLPaths detects the default OMP file locations inside the given WSL
+// distro. It queries the distro for its HOME directory via wsl.exe -d <distro> -- printenv HOME, then
+// constructs UNC paths (\\wsl.localhost\<distro>\home\...). Paths whose
+// files actually exist are returned in CustomPaths, ready to save.
+func (a *App) ResolveWSLPaths(distro string) (PathDetectResult, error) {
+	distro = strings.TrimSpace(distro)
+	if distro == "" {
+		return PathDetectResult{}, errors.New("请先选择或填写 WSL 发行版名称")
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 8*time.Second)
+	defer cancel()
+	cmd := exec.CommandContext(ctx, "wsl.exe", "-d", distro, "--", "printenv", "HOME")
+	raw, err := cmd.Output()
+	if err != nil {
+		if errors.Is(ctx.Err(), context.DeadlineExceeded) {
+			return PathDetectResult{Mode: "wsl", Message: "检测超时，请确认 WSL 发行版可用"}, nil
+		}
+		return PathDetectResult{Mode: "wsl", Message: "无法连接 WSL 发行版：" + strings.TrimSpace(string(raw))}, nil
+	}
+	home := strings.TrimSpace(string(raw))
+	if home == "" || !strings.HasPrefix(home, "/") {
+		return PathDetectResult{Mode: "wsl", Message: "无法读取 WSL 主目录"}, nil
+	}
+	result := PathDetectResult{Mode: "wsl", HomeDir: home}
+	// Convert /home/admin to home\admin and build UNC paths. The
+	// double backslash prefix is required for a Windows UNC path
+	// (\\wsl.localhost\...). filepath.Join collapses leading separators,
+	// so build the path by hand to preserve the UNC prefix exactly.
+	rel := filepath.FromSlash(strings.TrimPrefix(home, "/"))
+	base := "\\\\wsl.localhost\\" + distro + "\\" + filepath.Join(rel, ".omp", "agent")
+	result.CustomPaths.OMPModelsPath = base + "\\models.yml"
+	result.CustomPaths.OMPConfigPath = base + "\\config.yml"
+	result.CustomPaths.OMPSessionsDir = base + "\\sessions"
+	if info, e := os.Stat(result.CustomPaths.OMPModelsPath); e == nil && !info.IsDir() {
+		result.Detected = true
+		result.Message = "已检测到 OMP Models（models.yml）"
+	} else {
+		if ensureErr := ensureOMPFiles(result.CustomPaths.OMPModelsPath, result.CustomPaths.OMPConfigPath, result.CustomPaths.OMPSessionsDir); ensureErr != nil {
+			return PathDetectResult{Mode: "wsl", HomeDir: home, CustomPaths: result.CustomPaths, Message: "创建 OMP 配置失败：" + ensureErr.Error()}, nil
+		}
+		result.Detected = true
+		result.Message = "未找到 models.yml，已自动创建默认配置（空供应商列表）"
+	}
+	return result, nil
+}
+
 func (a *App) OpenConfigFolder() error {
 	runtime.BrowserOpenURL(a.ctx, "file:///"+filepath.ToSlash(filepath.Dir(a.paths.OMPSwitchConfigPath)))
 	return nil
 }
+
 func (a *App) CheckEnvVar(name string) (system.EnvCheckResult, error) {
 	return system.CheckEnvVar(name), nil
 }
+
+// ResolveNativePaths detects OMP file locations for a local Windows install.
+// It fills the default ~/.omp/agent/ paths and marks detected when models.yml
+// actually exists.
+func (a *App) ResolveNativePaths() (PathDetectResult, error) {
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return PathDetectResult{}, fmt.Errorf("获取用户主目录: %w", err)
+	}
+	rec := paths.DefaultPaths()
+	result := PathDetectResult{Mode: "native", HomeDir: home}
+	result.CustomPaths.OMPModelsPath = rec.OMPModelsPath
+	result.CustomPaths.OMPConfigPath = rec.OMPConfigPath
+	result.CustomPaths.OMPSessionsDir = rec.OMPSessionsDir
+	if info, e := os.Stat(rec.OMPModelsPath); e == nil && !info.IsDir() {
+		result.Detected = true
+		result.Message = "已检测到本地 OMP Models（models.yml）"
+	} else {
+		if ensureErr := ensureOMPFiles(rec.OMPModelsPath, rec.OMPConfigPath, rec.OMPSessionsDir); ensureErr != nil {
+			return PathDetectResult{Mode: "native", HomeDir: home, CustomPaths: result.CustomPaths, Message: "创建 OMP 配置失败：" + ensureErr.Error()}, nil
+		}
+		result.Detected = true
+		result.Message = "本地未找到 models.yml，已自动创建默认配置（空供应商列表）"
+	}
+	return result, nil
+}
+
+// ListWSLDistros enumerates installed WSL distributions. It prefers the
+// verbose table (ID, WSL version, default marker) and falls back to the
+// quiet name list on older WSL versions. Returns an empty slice if WSL is
+// not installed or the command times out (3s).
+func (a *App) ListWSLDistros() ([]WSLDistro, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	defer cancel()
+	cmd := exec.CommandContext(ctx, "wsl.exe", "--list", "--verbose")
+	raw, err := cmd.Output()
+	if err == nil {
+		if distros := parseWSLDistroVerbose(raw); len(distros) > 0 {
+			return distros, nil
+		}
+	}
+	// Fallback: silent name list.
+	cmd2 := exec.CommandContext(ctx, "wsl.exe", "--list", "--quiet")
+	raw2, err2 := cmd2.Output()
+	if err2 != nil {
+		return []WSLDistro{}, nil
+	}
+	names := parseWSLDistroOutput(raw2)
+	distros := make([]WSLDistro, 0, len(names))
+	for _, name := range names {
+		distros = append(distros, WSLDistro{ID: name, Name: name})
+	}
+	return distros, nil
+}
+
+// decodeUTF16LE decodes UTF-16LE bytes (optionally with a BOM) to a string.
+func decodeUTF16LE(raw []byte) string {
+	if len(raw) < 2 {
+		return ""
+	}
+	start := 0
+	if raw[0] == 0xFF && raw[1] == 0xFE {
+		start = 2
+	}
+	if (len(raw)-start)%2 != 0 {
+		return ""
+	}
+	codes := make([]uint16, 0, (len(raw)-start)/2)
+	for i := start; i+1 < len(raw); i += 2 {
+		codes = append(codes, binary.LittleEndian.Uint16(raw[i:i+2]))
+	}
+	return string(utf16.Decode(codes))
+}
+
+// parseWSLDistroOutput decodes UTF-16LE output from \`wsl.exe --list --quiet\`
+// and returns trimmed distro names. Returns empty slice on decode failure.
+func parseWSLDistroOutput(raw []byte) []string {
+	decoded := decodeUTF16LE(raw)
+	if decoded == "" {
+		return []string{}
+	}
+	lines := strings.Split(decoded, "\n")
+	distros := make([]string, 0, len(lines))
+	for _, line := range lines {
+		name := strings.TrimSpace(line)
+		if name != "" {
+			distros = append(distros, name)
+		}
+	}
+	return distros
+}
+
+// parseWSLDistroVerbose parses the table from \`wsl.exe --list --verbose\`:
+//
+//	NAME                   STATE           VERSION
+//	* Ubuntu               Running         2
+//	  Debian               Stopped         1
+//
+// The ID equals the NAME column (the value passed to wsl.exe -d).
+func parseWSLDistroVerbose(raw []byte) []WSLDistro {
+	decoded := decodeUTF16LE(raw)
+	if decoded == "" {
+		return []WSLDistro{}
+	}
+	var distros []WSLDistro
+	for _, line := range strings.Split(decoded, "\n") {
+		fields := strings.Fields(line)
+		if len(fields) < 2 {
+			continue
+		}
+		// Skip table header row. wsl.exe localizes it: "NAME STATE VERSION"
+		// (en) or "名称 状态 版本" (zh-CN). A valid data row always has the
+		// distro name followed by at least STATE and VERSION; the header has
+		// no numeric version field, so require one instead of matching text.
+		hasVersion := false
+		for _, f := range fields {
+			if _, err := strconv.Atoi(f); err == nil {
+				hasVersion = true
+				break
+			}
+		}
+		if strings.HasPrefix(fields[0], "*") {
+			if len(fields) < 4 || !hasVersion {
+				continue
+			}
+		} else if len(fields) < 3 || !hasVersion {
+			continue
+		}
+		distro := WSLDistro{}
+		rest := fields
+		if rest[0] == "*" {
+			distro.IsDefault = true
+			rest = rest[1:]
+		}
+		if len(rest) < 1 {
+			continue
+		}
+		distro.ID = rest[0]
+		distro.Name = rest[0]
+		for _, field := range rest[1:] {
+			if n, err := strconv.Atoi(field); err == nil {
+				distro.Version = n
+				break
+			}
+		}
+		distros = append(distros, distro)
+	}
+	return distros
+}
+
 func (a *App) startBackgroundUpdateCheck() {
 	cfg, e := a.service.Load()
 	if e != nil || !updater.NeedsCheck(cfg.Settings) {
@@ -620,6 +991,7 @@ func (a *App) startBackgroundUpdateCheck() {
 		}
 	}()
 }
+
 func (a *App) recordUpdateCheck() error {
 	a.mutationMu.Lock()
 	defer a.mutationMu.Unlock()
@@ -630,12 +1002,15 @@ func (a *App) recordUpdateCheck() error {
 	cfg.Settings.LastUpdateCheckAtUnix = time.Now().Unix()
 	return a.saveAppOnly(cfg)
 }
+
 func (a *App) CheckForUpdate() (updater.CheckResult, error) {
 	r, e := updater.CheckLatest(appVersion)
 	_ = a.recordUpdateCheck()
 	return r, e
 }
+
 func (a *App) MarkUpdateChecked() error { return a.recordUpdateCheck() }
+
 func (a *App) InstallUpdate() error {
 	r, e := updater.CheckLatest(appVersion)
 	if e != nil {
@@ -656,6 +1031,7 @@ func (a *App) InstallUpdate() error {
 	}
 	return updater.Install(p)
 }
+
 func (a *App) loadClone() (config.SwitchConfig, error) {
 	cfg, e := a.service.Load()
 	if e != nil {
@@ -663,6 +1039,7 @@ func (a *App) loadClone() (config.SwitchConfig, error) {
 	}
 	return cloneSwitchConfig(cfg), nil
 }
+
 func (a *App) saveOMP(cfg config.SwitchConfig) error {
 	if e := validateSwitchConfig(cfg); e != nil {
 		return e
@@ -670,6 +1047,7 @@ func (a *App) saveOMP(cfg config.SwitchConfig) error {
 	a.markSelfWrite()
 	return a.service.SaveOMPState(cfg)
 }
+
 func (a *App) saveAppOnly(cfg config.SwitchConfig) error {
 	if e := validateSwitchConfig(cfg); e != nil {
 		return e
@@ -677,9 +1055,11 @@ func (a *App) saveAppOnly(cfg config.SwitchConfig) error {
 	a.markSelfWrite()
 	return a.service.SaveAppOnly(cfg)
 }
+
 func providerFromInput(i provider.SaveInput) provider.Config {
 	return provider.Config{ID: i.ID, Name: i.ID, BaseURL: i.BaseURL, APIKey: strings.TrimSpace(i.APIKey), API: i.API, HeaderMode: i.HeaderMode, Headers: cloneStringMap(i.Headers), CustomHeaders: cloneStringMap(i.CustomHeaders), Models: []provider.ModelInfo{}}
 }
+
 func availableProviderID(requested string, providers []provider.Config, exclude string) string {
 	used := map[string]struct{}{}
 	for _, p := range providers {
@@ -697,6 +1077,7 @@ func availableProviderID(requested string, providers []provider.Config, exclude 
 		}
 	}
 }
+
 func cloneSwitchConfig(in config.SwitchConfig) config.SwitchConfig {
 	out := in
 	out.Providers = make([]provider.Config, len(in.Providers))
@@ -709,6 +1090,7 @@ func cloneSwitchConfig(in config.SwitchConfig) config.SwitchConfig {
 	out.ModelRoles = cloneStringMap(in.ModelRoles)
 	return out
 }
+
 func cloneModels(in []provider.ModelInfo) []provider.ModelInfo {
 	out := make([]provider.ModelInfo, len(in))
 	for i, m := range in {
@@ -720,6 +1102,7 @@ func cloneModels(in []provider.ModelInfo) []provider.ModelInfo {
 	}
 	return out
 }
+
 func cloneStringMap(in map[string]string) map[string]string {
 	out := make(map[string]string, len(in))
 	for k, v := range in {
@@ -727,6 +1110,7 @@ func cloneStringMap(in map[string]string) map[string]string {
 	}
 	return out
 }
+
 func validateSwitchConfig(cfg config.SwitchConfig) error {
 	for _, p := range cfg.Providers {
 		if e := config.ValidateProvider(p); e != nil {
@@ -735,4 +1119,5 @@ func validateSwitchConfig(cfg config.SwitchConfig) error {
 	}
 	return nil
 }
+
 func init() { _ = os.Setenv("WAILS_SAVE_FILE_OVERWRITE_PROMPT", "false") }

@@ -82,15 +82,15 @@ select:focus {
 .text-button {
   position: relative;
   min-height: var(--control-md);
-  padding: 0 15px;
+  padding: 0 16px;
   overflow: hidden;
-  border: 1px solid var(--color-divider);
+  border: 1px solid var(--color-divider-strong);
   border-radius: var(--radius-pill);
   background: var(--control-bg);
-  box-shadow: none;
+  box-shadow: 0 1px 2px rgba(13,13,13,0.05);
   color: var(--ink-secondary);
-  font-size: 12px;
-  font-weight: 560;
+  font-size: 12.5px;
+  font-weight: 600;
   cursor: pointer;
   transition: transform 120ms ease-out, color 180ms ease, border-color 180ms ease, background-color 180ms ease;
 }
@@ -100,13 +100,13 @@ select:focus {
 }
 
 .text-button:hover {
-  border-color: var(--color-divider-strong);
-  background: var(--color-hover-bg);
-  color: var(--ink);
+  border-color: var(--color-accent);
+  background: var(--color-accent-soft);
+  color: var(--text-primary);
 }
 .text-button:active { transform: scale(.965); }
-.text-button--accent { color: var(--color-accent); background-color: var(--accent-soft); }
-.text-button--danger { color: var(--danger); background-color: var(--color-danger-bg); }
+.text-button--accent { color: var(--color-accent); background-color: var(--accent-soft); border-color: color-mix(in srgb, var(--color-accent) 38%, transparent); font-weight: 650; }
+.text-button--danger { color: var(--danger); background-color: var(--color-danger-bg); border-color: color-mix(in srgb, var(--danger) 42%, transparent); font-weight: 650; }
 
 
 .window-symbol,

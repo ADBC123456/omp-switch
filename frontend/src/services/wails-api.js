@@ -1,4 +1,4 @@
-import { CancelModelDiscovery, CheckEnvVar, CheckForUpdate, ContinueSession, CreateProvider, DeleteGlobalSkill, DeleteModels, DeleteProvider, DeleteSession, ExecuteLaunchOMP, FetchModels, GetAppState, GetModelsDeleteImpact, GetProviderDeleteImpact, ImportDiscoveredModels, InstallUpdate, ListGlobalSkills, ListSessions, MarkUpdateChecked, OpenConfigFolder, SaveModel, SetSelectedModel, SetSelectedProvider, TestModel, UpdateModelRoles, UpdateProvider, UpdateSettings } from "../../wailsjs/go/main/App";
+import { CancelModelDiscovery, CheckEnvVar, CheckForUpdate, ContinueSession, CreateProvider, DeleteGlobalSkill, DeleteModels, DeleteProvider, DeleteSession, ExecuteLaunchOMP, FetchModels, GetAppState, GetModelsDeleteImpact, GetProviderDeleteImpact, ImportDiscoveredModels, InstallUpdate, ListGlobalSkills, ListSessions, MarkUpdateChecked, OpenConfigFolder, SaveModel, SetSelectedModel, SetSelectedProvider, TestModel, UpdateModelRoles, UpdateProvider, UpdateSettings, ListWSLDistros, ResolveWSLPaths, ResolveNativePaths, } from "../../wailsjs/go/main/App";
 import { BrowserOpenURL, Quit, WindowMinimise, WindowToggleMaximise, EventsOn } from "../../wailsjs/runtime/runtime";
 
 export class WailsApi {
@@ -26,6 +26,9 @@ export class WailsApi {
   listGlobalSkills() { return ListGlobalSkills(); }
   deleteGlobalSkill(name) { return DeleteGlobalSkill(name); }
   updateSettings(settings) { return UpdateSettings(settings); }
+  listWSLDistros() { return ListWSLDistros(); }
+  resolveWSLPaths(distro) { return ResolveWSLPaths(distro); }
+  resolveNativePaths() { return ResolveNativePaths(); }
   checkForUpdate() { return CheckForUpdate(); }
   markUpdateChecked() { return MarkUpdateChecked(); }
   installUpdate() { return InstallUpdate(); }

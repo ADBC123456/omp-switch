@@ -1,11 +1,30 @@
 export namespace config {
 	
+	export class CustomPaths {
+	    ompModelsPath?: string;
+	    ompConfigPath?: string;
+	    ompSessionsDir?: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new CustomPaths(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.ompModelsPath = source["ompModelsPath"];
+	        this.ompConfigPath = source["ompConfigPath"];
+	        this.ompSessionsDir = source["ompSessionsDir"];
+	    }
+	}
 	export class AppSettings {
 	    ompCommand: string;
 	    theme: string;
 	    darkMode?: boolean;
 	    workingDir: string;
 	    lastUpdateCheckAt?: number;
+	    customPaths?: CustomPaths;
+	    launchMode?: string;
+	    wslDistro?: string;
 	
 	    static createFrom(source: any = {}) {
 	        return new AppSettings(source);
@@ -18,7 +37,28 @@ export namespace config {
 	        this.darkMode = source["darkMode"];
 	        this.workingDir = source["workingDir"];
 	        this.lastUpdateCheckAt = source["lastUpdateCheckAt"];
+	        this.customPaths = this.convertValues(source["customPaths"], CustomPaths);
+	        this.launchMode = source["launchMode"];
+	        this.wslDistro = source["wslDistro"];
 	    }
+	
+		convertValues(a: any, classs: any, asMap: boolean = false): any {
+		    if (!a) {
+		        return a;
+		    }
+		    if (a.slice && a.map) {
+		        return (a as any[]).map(elem => this.convertValues(elem, classs));
+		    } else if ("object" === typeof a) {
+		        if (asMap) {
+		            for (const key of Object.keys(a)) {
+		                a[key] = new classs(a[key]);
+		            }
+		            return a;
+		        }
+		        return new classs(a);
+		    }
+		    return a;
+		}
 	}
 	export class PathView {
 	    ompSwitchConfigPath: string;
@@ -83,6 +123,7 @@ export namespace config {
 		}
 	}
 	
+	
 	export class RoleUpdate {
 	    role: string;
 	    selector: string;
@@ -104,6 +145,44 @@ export namespace config {
 
 export namespace main {
 	
+	export class PathDetectResult {
+	    mode: string;
+	    homeDir: string;
+	    customPaths: config.CustomPaths;
+	    detected: boolean;
+	    message: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new PathDetectResult(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.mode = source["mode"];
+	        this.homeDir = source["homeDir"];
+	        this.customPaths = this.convertValues(source["customPaths"], config.CustomPaths);
+	        this.detected = source["detected"];
+	        this.message = source["message"];
+	    }
+	
+		convertValues(a: any, classs: any, asMap: boolean = false): any {
+		    if (!a) {
+		        return a;
+		    }
+		    if (a.slice && a.map) {
+		        return (a as any[]).map(elem => this.convertValues(elem, classs));
+		    } else if ("object" === typeof a) {
+		        if (asMap) {
+		            for (const key of Object.keys(a)) {
+		                a[key] = new classs(a[key]);
+		            }
+		            return a;
+		        }
+		        return new classs(a);
+		    }
+		    return a;
+		}
+	}
 	export class ProviderMutationResult {
 	    state: config.AppState;
 	    finalProviderId: string;
@@ -137,6 +216,24 @@ export namespace main {
 		    }
 		    return a;
 		}
+	}
+	export class WSLDistro {
+	    id: string;
+	    name: string;
+	    version: number;
+	    isDefault: boolean;
+	
+	    static createFrom(source: any = {}) {
+	        return new WSLDistro(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.id = source["id"];
+	        this.name = source["name"];
+	        this.version = source["version"];
+	        this.isDefault = source["isDefault"];
+	    }
 	}
 
 }

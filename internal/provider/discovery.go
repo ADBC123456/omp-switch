@@ -149,7 +149,21 @@ func readDiscoveryResponse(response *http.Response) ([]byte, error) {
 		if len(body) > maxDiscoveryErrorBody {
 			body = body[:maxDiscoveryErrorBody]
 		}
-		return nil, fmt.Errorf("服务返回 %s：%s", response.Status, strings.TrimSpace(string(body)))
+		trimmed := strings.TrimSpace(string(body))
+		if trimmed == "" {
+			return nil, fmt.Errorf("服务返回 %s（空响应）", response.Status)
+		}
+		// HTML error pages (SPA 404s from a website, not an API) are useless
+		// as error detail. Detect them cheaply and give a fix-oriented hint.
+		lower := strings.ToLower(trimmed)
+		if strings.HasPrefix(lower, "<") || strings.Contains(lower[:min(len(lower), 200)], "<!doctype") || strings.Contains(lower[:min(len(lower), 200)], "<html") {
+			return nil, fmt.Errorf("服务返回 %s：该地址不是 OpenAI 兼容 API 端点。请确认 API 基础地址填写的是模型供应商的接口地址（如 https://api.deepseek.com/v1、https://api.openai.com/v1），而不是产品官网", response.Status)
+		}
+		const maxShown = 300
+		if len(trimmed) > maxShown {
+			trimmed = trimmed[:maxShown] + "…"
+		}
+		return nil, fmt.Errorf("服务返回 %s：%s", response.Status, trimmed)
 	}
 	body, err := io.ReadAll(response.Body)
 	if err != nil {

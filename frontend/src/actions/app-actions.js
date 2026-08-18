@@ -89,7 +89,18 @@ export function createAppActions({ root, api, store, feedback, applyTheme }) {
     } catch (error) { feedback.showError("删除 OMP 会话失败", error); }
   }
   async function saveSettings() {
-    const next = { ompCommand: root.querySelector('[name="ompCommand"]')?.value.trim(), workingDir: root.querySelector('[name="workingDir"]')?.value.trim(), theme: root.querySelector('[name="theme"]')?.value ?? "system" };
+    const next = {
+      ompCommand: root.querySelector('[name="ompCommand"]')?.value.trim(),
+      workingDir: root.querySelector('[name="workingDir"]')?.value.trim(),
+      theme: root.querySelector('[name="theme"]')?.value ?? "system",
+      launchMode: root.querySelector('[name="launchMode"]')?.value ?? "native",
+      wslDistro: root.querySelector('[name="wslDistro"]')?.value.trim() ?? "",
+      customPaths: {
+        ompModelsPath: root.querySelector('[name="customOmpModelsPath"]')?.value.trim() ?? "",
+        ompConfigPath: root.querySelector('[name="customOmpConfigPath"]')?.value.trim() ?? "",
+        ompSessionsDir: root.querySelector('[name="customOmpSessionsDir"]')?.value.trim() ?? "",
+      },
+    };
     try { const backend = await api.updateSettings(next); applyTheme(backend.settings); store.setState((state) => adopt(state, backend)); }
     catch (error) { feedback.showError("保存应用设置失败", error); }
   }
