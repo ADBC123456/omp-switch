@@ -1,5 +1,5 @@
 import { CancelModelDiscovery, CheckEnvVar, CheckForUpdate, ContinueSession, CreateProvider, DeleteGlobalSkill, DeleteModels, DeleteProvider, DeleteSession, ExecuteLaunchOMP, FetchModels, GetAppState, GetModelsDeleteImpact, GetProviderDeleteImpact, ImportDiscoveredModels, InstallUpdate, ListGlobalSkills, ListSessions, MarkUpdateChecked, OpenConfigFolder, SaveModel, SetSelectedModel, SetSelectedProvider, TestModel, UpdateModelRoles, UpdateProvider, UpdateSettings, ListWSLDistros, ResolveWSLPaths, ResolveNativePaths, } from "../../wailsjs/go/main/App";
-import { BrowserOpenURL, Quit, WindowMinimise, WindowToggleMaximise, EventsOn } from "../../wailsjs/runtime/runtime";
+import { BrowserOpenURL, Quit, WindowMinimise, WindowSetBackgroundColour, WindowToggleMaximise, EventsOn } from "../../wailsjs/runtime/runtime";
 
 export class WailsApi {
   onConfigChanged(callback) { return EventsOn("omp:config-changed", callback); }
@@ -36,6 +36,7 @@ export class WailsApi {
   openConfigFolder() { return OpenConfigFolder(); }
   openExternalURL(url) { BrowserOpenURL(url); }
   minimiseWindow() { WindowMinimise(); }
+  setWindowBackgroundColour(red, green, blue, alpha) { WindowSetBackgroundColour(red, green, blue, alpha); }
   closeWindow() { Quit(); }
   toggleMaximiseWindow() { WindowToggleMaximise(); }
 }

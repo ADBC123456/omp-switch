@@ -1,4 +1,8 @@
 const MODES = new Set(["light", "dark", "system"]);
+const WINDOW_BACKGROUNDS = {
+  light: [243, 245, 247, 255],
+  dark: [15, 17, 21, 255],
+};
 
 export function normalizeThemeMode(mode) {
   return MODES.has(mode) ? mode : "system";
@@ -36,6 +40,7 @@ export class ThemeManager {
     document.documentElement.dataset.theme = theme;
     document.body.dataset.theme = theme;
     document.documentElement.style.colorScheme = theme;
+    this.api.setWindowBackgroundColour?.(...WINDOW_BACKGROUNDS[theme]);
   }
 
   async toggle(button) {
