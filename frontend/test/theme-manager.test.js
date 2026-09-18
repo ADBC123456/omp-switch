@@ -25,12 +25,17 @@ test("theme switcher exposes one three-state control", () => {
 function themeHarness(updateSettings) {
   const attributes = new Map();
   const classes = new Set();
+  const windowBackgrounds = [];
   const root = { dataset: {}, style: {} };
   globalThis.window = {};
   globalThis.document = { documentElement: root, body: { dataset: {} } };
   const state = { settings: { theme: "light", ompCommand: "omp" }, presets: [], modal: null };
   const store = { getState: () => state, setState(update) { Object.assign(state, update(state)); } };
-  const api = { applyWindowTheme() {}, updateSettings };
+  const api = {
+    applyWindowTheme() {},
+    setWindowBackgroundColour: (...colour) => windowBackgrounds.push(colour),
+    updateSettings
+  };
   const button = {
     getBoundingClientRect: () => ({ left: 740, top: 10, width: 34, height: 34 }),
     setAttribute: (name, value) => attributes.set(name, value),
@@ -39,8 +44,16 @@ function themeHarness(updateSettings) {
   };
   const manager = new ThemeManager({ api, store, media: { matches: false, addEventListener() {} } });
   manager.initialise(state.settings);
-  return { manager, state, button, attributes, classes };
+  return { manager, state, button, attributes, classes, windowBackgrounds };
 }
+
+test("theme application keeps the native Linux window background opaque", () => {
+  const harness = themeHarness(async (settings) => ({ settings }));
+
+  assert.deepEqual(harness.windowBackgrounds, [[243, 245, 247, 255]]);
+  harness.manager.applyResolved("dark");
+  assert.deepEqual(harness.windowBackgrounds.at(-1), [15, 17, 21, 255]);
+});
 
 test("theme toggle persists once and blocks re-entry while saving", async () => {
   let release;
